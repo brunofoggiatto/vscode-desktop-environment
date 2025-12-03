@@ -52,7 +52,8 @@ echo -e "${GREEN}[3/7] Instalando Openbox (gerenciador de janelas minimalista)..
 apt-get install -y \
     openbox \
     x11-xserver-utils \
-    dbus-x11
+    dbus-x11 \
+    wmctrl
 
 echo -e "${GREEN}[4/7] Instalando VS Code...${NC}"
 if ! command -v code >/dev/null 2>&1; then
@@ -187,15 +188,12 @@ code \
 # Aguarda VS Code abrir
 sleep 2
 
-# Força fullscreen usando wmctrl (se disponível)
-if command -v wmctrl >/dev/null 2>&1; then
-    wmctrl -r "Visual Studio Code" -b add,fullscreen
-fi
+# Força fullscreen usando wmctrl
+wmctrl -r "Visual Studio Code" -b add,fullscreen 2>/dev/null
 AUTOSTART
 
 chmod +x $HOME_DIR/.config/openbox/autostart
 
-# Ajusta permissões
 chown -R $USER_NAME:$USER_NAME $HOME_DIR/.config
 
 echo -e "${GREEN}[6/7] Configurando xrdp para iniciar automaticamente...${NC}"
@@ -210,12 +208,7 @@ usermod -aG ssl-cert $USER_NAME
 echo -e "${GREEN}[7/7] Finalizando...${NC}"
 
 echo -e "\n${GREEN}================================${NC}"
-echo -e "${GREEN} Instalação concluída!${NC}"
+echo -e "${GREEN}✓ Instalação concluída!${NC}"
 echo -e "${GREEN}================================${NC}\n"
 
-
-
-
-
-
-
+exit 0
