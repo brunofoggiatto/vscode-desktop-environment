@@ -1,66 +1,49 @@
 #!/bin/bash
 
-# Script para iniciar sessão VS Code
-# Este script é chamado pelo xinitrc
+# Script auxiliar para iniciar sessão VS Code
+# Este script pode ser chamado manualmente se necessário
 
-# Log de debug (opcional)
 LOG_FILE="/tmp/vscode-session.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== Iniciando sessão VS Code $(date) ==="
+echo "=== Iniciando VS Code Session $(date) ===" | tee -a "$LOG_FILE"
 
-# Aguarda o X11 estar pronto
+# Aguarda ambiente estar pronto
 sleep 2
 
-# Define variáveis de ambiente
-export DISPLAY=:0
-export XDG_SESSION_TYPE=x11
-
 # Desabilita screensaver e power management
-xset s off
-xset -dpms
-xset s noblank
+xset s off 2>/dev/null
+xset -dpms 2>/dev/null
+xset s noblank 2>/dev/null
 
-echo "X11 configurado. Display: $DISPLAY"
+echo "X11 configurado" | tee -a "$LOG_FILE"
 
-# Configura teclado (ajuste conforme necessário)
-# Para teclado brasileiro ABNT2:
-setxkbmap -model abnt2 -layout br -variant abnt2 2>/dev/null || setxkbmap br
+# Define fundo preto
+xsetroot -solid "#000000" 2>/dev/null
 
-echo "Teclado configurado."
+echo "Iniciando VS Code..." | tee -a "$LOG_FILE"
 
-# Inicia Openbox em background (gerenciador de janelas leve)
-if command -v openbox >/dev/null 2>&1; then
-    openbox &
-    OPENBOX_PID=$!
-    echo "Openbox iniciado (PID: $OPENBOX_PID)"
-    sleep 1
+# Inicia VS Code com todas as otimizações
+code \
+    --disable-gpu \
+    --disable-gpu-sandbox \
+    --no-sandbox \
+    --disable-dev-shm-usage \
+    --start-fullscreen \
+    --verbose 2>&1 | tee -a "$LOG_FILE" &
+
+VSCODE_PID=$!
+echo "VS Code iniciado (PID: $VSCODE_PID)" | tee -a "$LOG_FILE"
+
+# Aguarda VS Code abrir
+sleep 3
+
+# Tenta forçar fullscreen usando wmctrl (se disponível)
+if command -v wmctrl >/dev/null 2>&1; then
+    wmctrl -r "Visual Studio Code" -b add,fullscreen 2>/dev/null
+    echo "Fullscreen forçado via wmctrl" | tee -a "$LOG_FILE"
 fi
 
-# Define resolução (opcional, ajuste conforme necessário)
-# xrandr --output Virtual-1 --mode 1920x1080 2>/dev/null
+echo "=== VS Code Session iniciada com sucesso ===" | tee -a "$LOG_FILE"
 
-# Inicia VS Code
-echo "Iniciando VS Code..."
-code --disable-gpu-sandbox --unity-launch &
-VSCODE_PID=$!
-
-echo "VS Code iniciado (PID: $VSCODE_PID)"
-
-# Função para cleanup ao sair
-cleanup() {
-    echo "Encerrando sessão..."
-    if [ -n "$VSCODE_PID" ]; then
-        kill $VSCODE_PID 2>/dev/null
-    fi
-    if [ -n "$OPENBOX_PID" ]; then
-        kill $OPENBOX_PID 2>/dev/null
-    fi
-}
-
-trap cleanup EXIT INT TERM
-
-# Monitora o VS Code - se fechar, encerra a sessão X
+# Mantém o processo ativo
 wait $VSCODE_PID
-
-echo "=== Sessão VS Code encerrada $(date) ==="

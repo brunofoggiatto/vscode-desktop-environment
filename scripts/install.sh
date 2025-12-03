@@ -2,15 +2,14 @@
 
 set -e
 
-# Cores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${GREEN}================================${NC}"
-echo -e "${GREEN}VS Code Desktop Environment${NC}"
-echo -e "${GREEN}Instalador v1.0${NC}"
+echo -e "${GREEN}VS Code RDP Environment${NC}"
+echo -e "${GREEN}Ultra Minimal Edition v2.0${NC}"
 echo -e "${GREEN}================================${NC}\n"
 
 # Verifica se é root
@@ -29,7 +28,7 @@ if ! grep -q "22.04" /etc/os-release; then
     fi
 fi
 
-# Pega o usuário que executou sudo
+# Pega o usuário
 if [ -n "$SUDO_USER" ]; then
     USER_NAME=$SUDO_USER
 else
@@ -39,136 +38,184 @@ fi
 
 HOME_DIR=$(eval echo ~$USER_NAME)
 
-echo -e "${GREEN}Usuário detectado: $USER_NAME${NC}"
-echo -e "${GREEN}Diretório home: $HOME_DIR${NC}\n"
+echo -e "${GREEN}Usuário: $USER_NAME${NC}"
+echo -e "${GREEN}Home: $HOME_DIR${NC}\n"
 
-echo -e "${GREEN}[1/6] Atualizando sistema...${NC}"
+echo -e "${GREEN}[1/7] Atualizando sistema...${NC}"
 apt-get update
 apt-get upgrade -y
 
-echo -e "${GREEN}[2/6] Instalando X11 e dependências mínimas...${NC}"
+echo -e "${GREEN}[2/7] Instalando xrdp...${NC}"
+apt-get install -y xrdp
+
+echo -e "${GREEN}[3/7] Instalando Openbox (gerenciador de janelas minimalista)...${NC}"
 apt-get install -y \
-    xorg \
-    xinit \
+    openbox \
     x11-xserver-utils \
-    dbus-x11 \
-    wget \
-    gpg \
-    apt-transport-https
+    dbus-x11
 
-echo -e "${GREEN}[3/6] Instalando gerenciador de janelas leve (opcional)...${NC}"
-# Openbox é útil para gerenciar janelas, mas é opcional
-apt-get install -y openbox
-
-echo -e "${GREEN}[4/6] Instalando Visual Studio Code...${NC}"
-# Verifica se VS Code já está instalado
+echo -e "${GREEN}[4/7] Instalando VS Code...${NC}"
 if ! command -v code >/dev/null 2>&1; then
-    # Adiciona repositório oficial do VS Code
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/ms_vscode.gpg
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ms_vscode.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
-    
     apt-get update
     apt-get install -y code
     echo "VS Code instalado com sucesso!"
 else
-    echo "VS Code já está instalado. Pulando instalação."
+    echo "VS Code já está instalado."
 fi
 
-echo -e "${GREEN}[5/6] Instalando scripts e configuração de auto-login + startx...${NC}"
+echo -e "${GREEN}[5/7] Configurando sessão para exibir APENAS VS Code em tela cheia...${NC}"
 
-# Copiar script de início da sessão
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-mkdir -p /opt/vscode-session
+# Cria startwm.sh que inicia Openbox
+cat > /etc/xrdp/startwm.sh <<'STARTWM'
+#!/bin/sh
+# xrdp X session start script - VS Code Full Screen Mode
 
-if [ -f "$SCRIPT_DIR/start-vscode-session" ]; then
-    cp "$SCRIPT_DIR/start-vscode-session" /usr/local/bin/start-vscode-session
-    chmod +x /usr/local/bin/start-vscode-session
-    echo "Script start-vscode-session copiado."
-else
-    echo -e "${YELLOW}Aviso: start-vscode-session não encontrado em $SCRIPT_DIR${NC}"
-    echo "Criando script padrão..."
-    cat > /usr/local/bin/start-vscode-session <<'STARTSCRIPT'
+if [ -r /etc/default/locale ]; then
+  . /etc/default/locale
+  export LANG LANGUAGE
+fi
+
+# Inicia Openbox (invisível, só para gerenciar janelas)
+exec openbox-session
+STARTWM
+
+chmod +x /etc/xrdp/startwm.sh
+
+# Cria diretório de config do Openbox
+mkdir -p $HOME_DIR/.config/openbox
+
+# Configuração do Openbox - VS Code sem bordas e em tela cheia
+cat > $HOME_DIR/.config/openbox/rc.xml <<'RCXML'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc" 
+                xmlns:xi="http://www.w3.org/2001/XInclude">
+  
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+  </focus>
+
+  <placement>
+    <policy>Smart</policy>
+  </placement>
+
+  <theme>
+    <name>Clearlooks</name>
+    <titleLayout></titleLayout>
+    <keepBorder>no</keepBorder>
+    <animateIconify>no</animateIconify>
+  </theme>
+
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <names>
+      <name>Desktop</name>
+    </names>
+    <popupTime>0</popupTime>
+  </desktops>
+
+  <applications>
+    <!-- VS Code: sem bordas, tela cheia, maximizado -->
+    <application class="code" type="normal">
+      <decor>no</decor>
+      <maximized>yes</maximized>
+      <fullscreen>yes</fullscreen>
+      <focus>yes</focus>
+      <desktop>1</desktop>
+      <layer>normal</layer>
+      <skip_pager>yes</skip_pager>
+      <skip_taskbar>yes</skip_taskbar>
+    </application>
+    
+    <!-- Qualquer outra aplicação também sem bordas -->
+    <application type="normal">
+      <decor>no</decor>
+      <maximized>yes</maximized>
+    </application>
+  </applications>
+
+  <!-- Remove todos os keybindings para evitar fechar janelas acidentalmente -->
+  <keyboard>
+    <chainQuitKey>C-g</chainQuitKey>
+  </keyboard>
+
+  <!-- Remove mouse bindings do Openbox -->
+  <mouse>
+    <dragThreshold>1</dragThreshold>
+    <doubleClickTime>200</doubleClickTime>
+  </mouse>
+
+</openbox_config>
+RCXML
+
+# Autostart - Inicia VS Code automaticamente
+cat > $HOME_DIR/.config/openbox/autostart <<'AUTOSTART'
 #!/bin/bash
-# Script para iniciar sessão VS Code
-
-# Aguarda o X11 estar pronto
-sleep 2
-
-# Define variáveis de ambiente
-export DISPLAY=:0
 
 # Desabilita screensaver e power management
-xset s off
-xset -dpms
-xset s noblank
+xset s off &
+xset -dpms &
+xset s noblank &
 
-# Inicia Openbox em background (gerenciador de janelas)
-openbox &
+# Remove qualquer barra de tarefas ou painel
+killall tint2 2>/dev/null
+killall lxpanel 2>/dev/null
+killall plank 2>/dev/null
 
-# Aguarda Openbox iniciar
-sleep 1
+# Define fundo preto (caso VS Code demore para abrir)
+xsetroot -solid "#000000" &
 
-# Inicia VS Code em fullscreen
-code --disable-gpu-sandbox --unity-launch &
+# Aguarda Openbox carregar completamente
+sleep 3
 
-# Mantém a sessão X ativa
-wait
-STARTSCRIPT
-    chmod +x /usr/local/bin/start-vscode-session
+# Inicia VS Code em tela cheia
+code \
+    --disable-gpu \
+    --disable-gpu-sandbox \
+    --no-sandbox \
+    --start-fullscreen \
+    --disable-dev-shm-usage &
+
+# Aguarda VS Code abrir
+sleep 2
+
+# Força fullscreen usando wmctrl (se disponível)
+if command -v wmctrl >/dev/null 2>&1; then
+    wmctrl -r "Visual Studio Code" -b add,fullscreen
 fi
+AUTOSTART
 
-# Criar .xinitrc para o usuário
-cat > "${HOME_DIR}/.xinitrc" <<'XINIT'
-#!/bin/sh
-# Arquivo .xinitrc — executa o start-vscode-session
-exec /usr/local/bin/start-vscode-session
-XINIT
-chmod +x "${HOME_DIR}/.xinitrc"
-chown ${USER_NAME}:${USER_NAME} "${HOME_DIR}/.xinitrc"
-echo ".xinitrc criado."
+chmod +x $HOME_DIR/.config/openbox/autostart
 
-# Configurar auto-login no tty1 usando override do systemd getty
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/override.conf <<EOF
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin ${USER_NAME} --noclear %I \$TERM
-EOF
-echo "Auto-login configurado."
+# Ajusta permissões
+chown -R $USER_NAME:$USER_NAME $HOME_DIR/.config
 
-# Garantir que ao logar no tty1 o startx seja executado
-cat > "${HOME_DIR}/.bash_profile" <<'BASHP'
-# .bash_profile para autostart X on tty1
-if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec /usr/bin/startx
-fi
-BASHP
-chmod 644 "${HOME_DIR}/.bash_profile"
-chown ${USER_NAME}:${USER_NAME} "${HOME_DIR}/.bash_profile"
-echo ".bash_profile criado."
+echo -e "${GREEN}[6/7] Configurando xrdp para iniciar automaticamente...${NC}"
 
-# Systemd daemon-reload
-systemctl daemon-reload
+# Habilita e inicia xrdp
+systemctl enable xrdp
+systemctl restart xrdp
 
-# Enable getty autologin override (será usado automaticamente no boot)
-systemctl enable getty@tty1.service
+# Adiciona usuário ao grupo ssl-cert
+usermod -aG ssl-cert $USER_NAME
 
-echo -e "${GREEN}[6/6] Configurações de permissão e finalização...${NC}"
-chown -R ${USER_NAME}:${USER_NAME} "${HOME_DIR}"
+echo -e "${GREEN}[7/7] Finalizando...${NC}"
 
 echo -e "\n${GREEN}================================${NC}"
-echo -e "${GREEN}Instalação concluída!${NC}"
+echo -e "${GREEN} Instalação concluída!${NC}"
 echo -e "${GREEN}================================${NC}\n"
 
-echo -e "${YELLOW}Próximos passos:${NC}"
-echo -e "1. Reinicie a máquina para entrar automaticamente no VS Code:"
-echo -e "   ${GREEN}sudo reboot${NC}\n"
-echo -e "2. Para testar sem reiniciar:"
-echo -e "   ${GREEN}sudo systemctl restart getty@tty1.service && sudo chvt 1${NC}\n"
 
-echo -e "${YELLOW}Sugestões pós-instalação:${NC}"
-echo "  - Acesse a VM via console ou interface do hypervisor"
-echo "  - Configure extensões do VS Code conforme necessário"
-echo "  - Ajuste o layout do teclado se necessário (setxkbmap)"
 
-exit 0
+
+
+
+
