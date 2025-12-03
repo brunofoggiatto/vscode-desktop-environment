@@ -53,7 +53,8 @@ apt-get install -y \
     openbox \
     x11-xserver-utils \
     dbus-x11 \
-    wmctrl
+    wmctrl \
+    xterm
 
 echo -e "${GREEN}[4/7] Instalando VS Code...${NC}"
 if ! command -v code >/dev/null 2>&1; then
@@ -65,6 +66,101 @@ if ! command -v code >/dev/null 2>&1; then
 else
     echo "VS Code já está instalado."
 fi
+
+echo -e "${GREEN}[4.5/7] Instalando temas e configurando seletor...${NC}"
+
+# Instala vários temas populares
+sudo -u $USER_NAME code --install-extension PKief.material-icon-theme
+sudo -u $USER_NAME code --install-extension vscode-icons-team.vscode-icons
+sudo -u $USER_NAME code --install-extension GitHub.github-vscode-theme
+sudo -u $USER_NAME code --install-extension dracula-theme.theme-dracula
+sudo -u $USER_NAME code --install-extension enkia.tokyo-night
+sudo -u $USER_NAME code --install-extension sdras.night-owl
+sudo -u $USER_NAME code --install-extension sainnhe.everforest
+sudo -u $USER_NAME code --install-extension antfu.theme-vitesse
+
+echo "Temas instalados!"
+
+# Cria diretório se não existir
+mkdir -p "$HOME/.config/Code/User"
+
+# Menu de seleção
+clear
+echo ""
+echo "1) GitHub Dark (Minimalista e clean)"
+echo "2) Dracula (Roxo escuro elegante)"
+echo "3) Tokyo Night (Moderno e vibrante)"
+echo "4) Night Owl (Suave para os olhos)"
+echo "5) Everforest (Natural e relaxante)"
+echo "6) Vitesse Dark (Moderno colorido)"
+echo ""
+read -p "Digite o número do tema (1-6): " choice
+
+case $choice in
+    1)
+        THEME="GitHub Dark Default"
+        ICON="material-icon-theme"
+        ;;
+    2)
+        THEME="Dracula"
+        ICON="material-icon-theme"
+        ;;
+    3)
+        THEME="Tokyo Night"
+        ICON="vscode-icons"
+        ;;
+    4)
+        THEME="Night Owl"
+        ICON="material-icon-theme"
+        ;;
+    5)
+        THEME="Everforest Dark"
+        ICON="material-icon-theme"
+        ;;
+    6)
+        THEME="Vitesse Dark"
+        ICON="vscode-icons"
+        ;;
+    *)
+        THEME="GitHub Dark Default"
+        ICON="material-icon-theme"
+        ;;
+esac
+
+# Cria configuração
+cat > "$SETTINGS_FILE" <<SETTINGS
+{
+  "workbench.colorTheme": "$THEME",
+  "workbench.iconTheme": "$ICON",
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+  "editor.fontLigatures": true,
+  "editor.cursorBlinking": "smooth",
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "workbench.startupEditor": "none",
+  "window.menuBarVisibility": "toggle",
+  "editor.minimap.enabled": true,
+  "editor.minimap.showSlider": "always",
+  "files.autoSave": "afterDelay",
+  "terminal.integrated.fontSize": 13
+}
+SETTINGS
+
+echo ""
+echo "✓ Tema '$THEME' configurado!"
+echo "✓ VS Code abrirá em 3 segundos..."
+sleep 3
+
+# Marca que já escolheu
+touch "$FIRST_RUN_FLAG"
+THEME_SELECTOR
+
+chmod +x /usr/local/bin/select-vscode-theme
+chown root:root /usr/local/bin/select-vscode-theme
+
+echo "Seletor de tema instalado!"
 
 echo -e "${GREEN}[5/7] Configurando sessão para exibir APENAS VS Code em tela cheia...${NC}"
 
@@ -171,11 +267,24 @@ killall tint2 2>/dev/null
 killall lxpanel 2>/dev/null
 killall plank 2>/dev/null
 
-# Define fundo preto (caso VS Code demore para abrir)
+# Define fundo preto
 xsetroot -solid "#000000" &
 
-# Aguarda Openbox carregar completamente
-sleep 3
+# Aguarda Openbox carregar
+sleep 2
+
+# Se é primeira vez, abre terminal com seletor de tema
+if [ ! -f "$HOME/.vscode-theme-selected" ]; then
+    # Instala xterm se não tiver
+    xterm -maximized -e /usr/local/bin/select-vscode-theme &
+    # Aguarda seleção do tema
+    while [ ! -f "$HOME/.vscode-theme-selected" ]; do
+        sleep 1
+    done
+fi
+
+# Aguarda mais 1 segundo
+sleep 1
 
 # Inicia VS Code em tela cheia
 code \
