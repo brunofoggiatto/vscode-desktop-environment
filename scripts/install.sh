@@ -41,14 +41,14 @@ HOME_DIR=$(eval echo ~$USER_NAME)
 echo -e "${GREEN}Usuário: $USER_NAME${NC}"
 echo -e "${GREEN}Home: $HOME_DIR${NC}\n"
 
-echo -e "${GREEN}[1/7] Atualizando sistema...${NC}"
+echo -e "${GREEN}[1/8] Atualizando sistema...${NC}"
 apt-get update
 apt-get upgrade -y
 
-echo -e "${GREEN}[2/7] Instalando xrdp...${NC}"
+echo -e "${GREEN}[2/8] Instalando xrdp...${NC}"
 apt-get install -y xrdp
 
-echo -e "${GREEN}[3/7] Instalando Openbox (gerenciador de janelas minimalista)...${NC}"
+echo -e "${GREEN}[3/8] Instalando Openbox (gerenciador de janelas minimalista)...${NC}"
 apt-get install -y \
     openbox \
     x11-xserver-utils \
@@ -56,7 +56,7 @@ apt-get install -y \
     wmctrl \
     xterm
 
-echo -e "${GREEN}[4/7] Instalando VS Code...${NC}"
+echo -e "${GREEN}[4/8] Instalando VS Code...${NC}"
 if ! command -v code >/dev/null 2>&1; then
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/ms_vscode.gpg
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ms_vscode.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
@@ -67,7 +67,7 @@ else
     echo "VS Code já está instalado."
 fi
 
-echo -e "${GREEN}[4.5/7] Instalando temas e configurando seletor...${NC}"
+echo -e "${GREEN}[5/8] Instalando temas e configurando seletor...${NC}"
 
 # Instala vários temas populares
 sudo -u $USER_NAME code --install-extension PKief.material-icon-theme
@@ -80,6 +80,18 @@ sudo -u $USER_NAME code --install-extension sainnhe.everforest
 sudo -u $USER_NAME code --install-extension antfu.theme-vitesse
 
 echo "Temas instalados!"
+
+# Cria script seletor de tema
+cat > /usr/local/bin/select-vscode-theme <<'THEME_SELECTOR'
+#!/bin/bash
+
+SETTINGS_FILE="$HOME/.config/Code/User/settings.json"
+FIRST_RUN_FLAG="$HOME/.vscode-theme-selected"
+
+# Se já escolheu tema, não mostrar de novo
+if [ -f "$FIRST_RUN_FLAG" ]; then
+    exit 0
+fi
 
 # Cria diretório se não existir
 mkdir -p "$HOME/.config/Code/User"
@@ -128,7 +140,7 @@ case $choice in
 esac
 
 # Cria configuração
-cat > "$SETTINGS_FILE" <<SETTINGS
+cat > "$SETTINGS_FILE" <<EOF
 {
   "workbench.colorTheme": "$THEME",
   "workbench.iconTheme": "$ICON",
@@ -146,7 +158,7 @@ cat > "$SETTINGS_FILE" <<SETTINGS
   "files.autoSave": "afterDelay",
   "terminal.integrated.fontSize": 13
 }
-SETTINGS
+EOF
 
 echo ""
 echo "✓ Tema '$THEME' configurado!"
@@ -162,7 +174,7 @@ chown root:root /usr/local/bin/select-vscode-theme
 
 echo "Seletor de tema instalado!"
 
-echo -e "${GREEN}[5/7] Configurando sessão para exibir APENAS VS Code em tela cheia...${NC}"
+echo -e "${GREEN}[6/8] Configurando sessão para exibir APENAS VS Code em tela cheia...${NC}"
 
 # Cria startwm.sh que inicia Openbox
 cat > /etc/xrdp/startwm.sh <<'STARTWM'
@@ -225,17 +237,19 @@ cat > $HOME_DIR/.config/openbox/rc.xml <<'RCXML'
       <decor>no</decor>
       <maximized>yes</maximized>
       <fullscreen>yes</fullscreen>
+      <iconic>no</iconic>
       <focus>yes</focus>
       <desktop>1</desktop>
       <layer>normal</layer>
       <skip_pager>yes</skip_pager>
       <skip_taskbar>yes</skip_taskbar>
     </application>
-    
-    <!-- Qualquer outra aplicação também sem bordas -->
+
+    <!-- Para qualquer outra janela também -->
     <application type="normal">
       <decor>no</decor>
       <maximized>yes</maximized>
+      <iconic>no</iconic>
     </application>
   </applications>
 
@@ -275,7 +289,7 @@ sleep 2
 
 # Se é primeira vez, abre terminal com seletor de tema
 if [ ! -f "$HOME/.vscode-theme-selected" ]; then
-    # Instala xterm se não tiver
+    # Abre xterm com seletor
     xterm -maximized -e /usr/local/bin/select-vscode-theme &
     # Aguarda seleção do tema
     while [ ! -f "$HOME/.vscode-theme-selected" ]; do
@@ -303,9 +317,10 @@ AUTOSTART
 
 chmod +x $HOME_DIR/.config/openbox/autostart
 
+# Ajusta permissões
 chown -R $USER_NAME:$USER_NAME $HOME_DIR/.config
 
-echo -e "${GREEN}[6/7] Configurando xrdp para iniciar automaticamente...${NC}"
+echo -e "${GREEN}[7/8] Configurando xrdp para iniciar automaticamente...${NC}"
 
 # Habilita e inicia xrdp
 systemctl enable xrdp
@@ -314,7 +329,7 @@ systemctl restart xrdp
 # Adiciona usuário ao grupo ssl-cert
 usermod -aG ssl-cert $USER_NAME
 
-echo -e "${GREEN}[7/7] Finalizando...${NC}"
+echo -e "${GREEN}[8/8] Finalizando...${NC}"
 
 echo -e "\n${GREEN}================================${NC}"
 echo -e "${GREEN}✓ Instalação concluída!${NC}"
