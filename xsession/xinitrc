@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# ~/.xinitrc - Configuração da sessão X11
+# Este arquivo é executado pelo startx
+
+# Carrega recursos X (se existir)
+if [ -f ~/.Xresources ]; then
+    xrdb -merge ~/.Xresources
+fi
+
+# Carrega perfil (se existir)
+if [ -f ~/.xprofile ]; then
+    . ~/.xprofile
+fi
+
+# Desabilita power management
+xset s off
+xset -dpms
+xset s noblank
+
+# Configura teclado (ajuste conforme necessário)
+setxkbmap -model abnt2 -layout br -variant abnt2 2>/dev/null || setxkbmap br
+
+# Inicia dbus se necessário
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# Executa o script de início da sessão VS Code
+exec /usr/local/bin/start-vscode-session

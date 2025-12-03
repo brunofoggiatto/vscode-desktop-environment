@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# Script para iniciar sessão VS Code
+# Este script é chamado pelo xinitrc
+
+# Log de debug (opcional)
+LOG_FILE="/tmp/vscode-session.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "=== Iniciando sessão VS Code $(date) ==="
+
+# Aguarda o X11 estar pronto
+sleep 2
+
+# Define variáveis de ambiente
+export DISPLAY=:0
+export XDG_SESSION_TYPE=x11
+
+# Desabilita screensaver e power management
+xset s off
+xset -dpms
+xset s noblank
+
+echo "X11 configurado. Display: $DISPLAY"
+
+# Configura teclado (ajuste conforme necessário)
+# Para teclado brasileiro ABNT2:
+setxkbmap -model abnt2 -layout br -variant abnt2 2>/dev/null || setxkbmap br
+
+echo "Teclado configurado."
+
+# Inicia Openbox em background (gerenciador de janelas leve)
+if command -v openbox >/dev/null 2>&1; then
+    openbox &
+    OPENBOX_PID=$!
+    echo "Openbox iniciado (PID: $OPENBOX_PID)"
+    sleep 1
+fi
+
+# Define resolução (opcional, ajuste conforme necessário)
+# xrandr --output Virtual-1 --mode 1920x1080 2>/dev/null
+
+# Inicia VS Code
+echo "Iniciando VS Code..."
+code --disable-gpu-sandbox --unity-launch &
+VSCODE_PID=$!
+
+echo "VS Code iniciado (PID: $VSCODE_PID)"
+
+# Função para cleanup ao sair
+cleanup() {
+    echo "Encerrando sessão..."
+    if [ -n "$VSCODE_PID" ]; then
+        kill $VSCODE_PID 2>/dev/null
+    fi
+    if [ -n "$OPENBOX_PID" ]; then
+        kill $OPENBOX_PID 2>/dev/null
+    fi
+}
+
+trap cleanup EXIT INT TERM
+
+# Monitora o VS Code - se fechar, encerra a sessão X
+wait $VSCODE_PID
+
+echo "=== Sessão VS Code encerrada $(date) ==="
