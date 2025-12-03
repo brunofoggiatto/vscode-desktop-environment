@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Script auxiliar para iniciar sessão VS Code
-# Este script pode ser chamado manualmente se necessário
-
 LOG_FILE="/tmp/vscode-session.log"
 
 echo "=== Iniciando VS Code Session $(date) ===" | tee -a "$LOG_FILE"

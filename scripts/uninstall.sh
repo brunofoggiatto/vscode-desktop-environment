@@ -1,76 +1,58 @@
 #!/bin/bash
-
 set -e
 
-RED='\033[0;31m'
+# Definição das cores
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${YELLOW}================================${NC}"
-echo -e "${YELLOW}VS Code RDP Environment${NC}"
-echo -e "${YELLOW}Desinstalador v2.0${NC}"
-echo -e "${YELLOW}================================${NC}\n"
+echo "Iniciando a REMOCAO do ambiente Kiosk (Uninstall)..."
+echo "Isso removera o VS Code, XRDP, Openbox e as configuracoes criadas."
 
+# Verifica se é root
 if [ "$EUID" -ne 0 ]; then 
-    echo -e "${RED}Por favor, execute como root (sudo)${NC}"
+    echo "Por favor, execute este script como root (sudo)."
     exit 1
 fi
 
+# Pega o nome do usuário real
 if [ -n "$SUDO_USER" ]; then
     USER_NAME=$SUDO_USER
 else
-    echo -e "${RED}Não foi possível determinar o usuário.${NC}"
+    echo "Não foi possível identificar o usuário. Rode com sudo."
     exit 1
 fi
 
 HOME_DIR=$(eval echo ~$USER_NAME)
+echo "Removendo configurações do usuário: $USER_NAME"
 
-echo -e "${RED}ATENÇÃO: Esta operação irá:${NC}"
-echo "  - Parar e remover xrdp"
-echo "  - Remover Openbox"
-echo "  - Remover configurações personalizadas"
-echo "  - Opcionalmente remover VS Code"
-echo ""
-read -p "Deseja continuar? (s/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    exit 1
-fi
+echo -e "${GREEN}[1/5] Parando serviços...${NC}"
+systemctl stop xrdp 2>/dev/null || true
+systemctl disable xrdp 2>/dev/null || true
 
-echo -e "\n${GREEN}[1/5] Parando e desabilitando xrdp...${NC}"
-systemctl stop xrdp
-systemctl disable xrdp
-
-echo -e "${GREEN}[2/5] Removendo xrdp...${NC}"
-apt-get remove -y xrdp
+echo -e "${GREEN}[2/5] Removendo pacotes (VS Code, Openbox, XRDP)...${NC}"
+# Remove os programas instalados pelo script anterior
+apt-get purge -y code xrdp openbox obconf wmctrl
+# Remove dependências que não são mais usadas
 apt-get autoremove -y
 
-echo -e "${GREEN}[3/5] Removendo Openbox...${NC}"
-apt-get remove -y openbox
+echo -e "${GREEN}[3/5] Limpando configurações do usuário...${NC}"
+# Remove pasta do Openbox criada
+rm -rf "$HOME_DIR/.config/openbox"
 
-echo -e "${GREEN}[4/5] Removendo configurações personalizadas...${NC}"
-rm -rf $HOME_DIR/.config/openbox
-rm -f /etc/xrdp/startwm.sh
+# Remove pasta de configurações do VS Code 
+# Se quiser manter dados de outros projetos, comente a linha abaixo.
+rm -rf "$HOME_DIR/.config/Code"
+rm -rf "$HOME_DIR/.vscode"
+
+echo -e "${GREEN}[4/5] Limpando repositórios e chaves...${NC}"
+rm -f /etc/apt/sources.list.d/vscode.list
+rm -f /usr/share/keyrings/ms_vscode.gpg
+rm -rf /etc/xrdp
+
+echo -e "${GREEN}[5/5] Atualizando lista de pacotes...${NC}"
+apt-get update -qq
 
 echo ""
-read -p "Deseja remover o VS Code também? (s/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Ss]$ ]]; then
-    echo -e "${GREEN}[5/5] Removendo VS Code...${NC}"
-    apt-get remove -y code
-    apt-get autoremove -y
-    rm -f /etc/apt/sources.list.d/vscode.list
-    rm -f /usr/share/keyrings/ms_vscode.gpg
-    echo "VS Code removido."
-else
-    echo -e "${GREEN}[5/5] Mantendo VS Code instalado${NC}"
-fi
-
-echo -e "\n${GREEN}================================${NC}"
-echo -e "${GREEN}✓ Desinstalação concluída!${NC}"
-echo -e "${GREEN}================================${NC}\n"
-
-echo -e "${YELLOW}Sistema restaurado ao estado original.${NC}\n"
-
-exit 0
+echo -e "${GREEN}Desinstalação concluída!${NC}"
+echo "O sistema foi limpo e os serviços removidos."
