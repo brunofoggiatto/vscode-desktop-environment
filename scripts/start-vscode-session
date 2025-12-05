@@ -2,7 +2,7 @@
 
 LOG_FILE="/tmp/vscode-session.log"
 
-echo "=== Iniciando VS Code Session $(date) ===" | tee -a "$LOG_FILE"
+echo "Iniciando VS Code Session $(date)"| tee -a "$LOG_FILE"
 
 # Aguarda ambiente estar pronto
 sleep 2
@@ -40,7 +40,7 @@ if command -v wmctrl >/dev/null 2>&1; then
     echo "Fullscreen forçado via wmctrl" | tee -a "$LOG_FILE"
 fi
 
-echo "=== VS Code Session iniciada com sucesso ===" | tee -a "$LOG_FILE"
+echo "VS Code Session iniciada com sucesso" | tee -a "$LOG_FILE"
 
 # Mantém o processo ativo
 wait $VSCODE_PID

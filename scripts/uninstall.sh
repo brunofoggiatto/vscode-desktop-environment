@@ -1,58 +1,60 @@
 #!/bin/bash
+
 set -e
 
-# Definição das cores
-GREEN='\033[0;32m'
+# Cores
 RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "Iniciando a REMOCAO do ambiente Kiosk (Uninstall)..."
-echo "Isso removera o VS Code, XRDP, Openbox e as configuracoes criadas."
+echo -e "${RED}--- INICIANDO DESINSTALAÇÃO DO AMBIENTE KIOSK ---${NC}"
 
-# Verifica se é root
+# Verifica root
 if [ "$EUID" -ne 0 ]; then 
-    echo "Por favor, execute este script como root (sudo)."
+    echo "Erro!! Rode como root"
     exit 1
 fi
 
-# Pega o nome do usuário real
+# Identifica usuário real
 if [ -n "$SUDO_USER" ]; then
     USER_NAME=$SUDO_USER
 else
-    echo "Não foi possível identificar o usuário. Rode com sudo."
+    echo "Erro: Não foi possível identificar o usuário. Rode como sudo."
     exit 1
 fi
 
 HOME_DIR=$(eval echo ~$USER_NAME)
-echo "Removendo configurações do usuário: $USER_NAME"
 
-echo -e "${GREEN}[1/5] Parando serviços...${NC}"
-systemctl stop xrdp 2>/dev/null || true
-systemctl disable xrdp 2>/dev/null || true
+echo -e "${YELLOW}Removendo pacotes principais...${NC}"
 
-echo -e "${GREEN}[2/5] Removendo pacotes (VS Code, Openbox, XRDP)...${NC}"
-# Remove os programas instalados pelo script anterior
-apt-get purge -y code xrdp openbox obconf wmctrl
-# Remove dependências que não são mais usadas
-apt-get autoremove -y
+# Remove VSCodium, Openbox, Tint2, XRDP e outros instalados
+apt-get purge -y codium openbox obconf tint2 xrdp pcmanfm terminator feh featherpad google-chrome-stable || true
 
-echo -e "${GREEN}[3/5] Limpando configurações do usuário...${NC}"
-# Remove pasta do Openbox criada
-rm -rf "$HOME_DIR/.config/openbox"
-
-# Remove pasta de configurações do VS Code 
-# Se quiser manter dados de outros projetos, comente a linha abaixo.
-rm -rf "$HOME_DIR/.config/Code"
-rm -rf "$HOME_DIR/.vscode"
-
-echo -e "${GREEN}[4/5] Limpando repositórios e chaves...${NC}"
-rm -f /etc/apt/sources.list.d/vscode.list
-rm -f /usr/share/keyrings/ms_vscode.gpg
-rm -rf /etc/xrdp
-
-echo -e "${GREEN}[5/5] Atualizando lista de pacotes...${NC}"
+echo -e "${YELLOW}Removendo repositórios e chaves...${NC}"
+rm -f /etc/apt/sources.list.d/vscodium.list
+rm -f /usr/share/keyrings/vscodium-archive-keyring.gpg
 apt-get update -qq
 
+echo -e "${YELLOW}Limpando configurações do usuário ($USER_NAME)...${NC}"
+
+# Remove as pastas de configuração criadas
+rm -rf "$HOME_DIR/.config/openbox"
+rm -rf "$HOME_DIR/.config/tint2"
+
+# Remove configurações do VSCodium 
+rm -rf "$HOME_DIR/.config/VSCodium"
+
+# Remove o arquivo de sessão que forçava o Openbox
+rm -f "$HOME_DIR/.xsession"
+
+# Remove configurações do XRDP
+rm -rf /etc/xrdp
+
+echo -e "${YELLOW}Limpando sistema (Autoremove)...${NC}"
+apt-get autoremove -y
+apt-get clean
+
 echo ""
-echo -e "${GREEN}Desinstalação concluída!${NC}"
-echo "O sistema foi limpo e os serviços removidos."
+echo -e "${GREEN}Desinstalação concluída.${NC}"
+echo "Reinicie a máquina: reboot"
