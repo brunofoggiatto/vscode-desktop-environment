@@ -3,7 +3,6 @@
 set -e
 
 # CONFIGURAÇÕES BÁSICAS
-WALLPAPER_URL="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=60&w=1280&auto=format&fit=crop"
 BG_COLOR="#282a36"
 
 # Cores para output
@@ -14,14 +13,14 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo ""
-echo -e "${BLUE} INSTALAÇÃO DE AMBIENTE DE DESENVOLVIMENTO XUXU-BELEZA ${NC}"
-echo -e "${BLUE}  Versão 1.0.3 ${NC}"
+echo -e "${BLUE} INSTALAÇÃO DE AMBIENTE DE DESENVOLVIMENTO ${NC}"
+echo -e "${BLUE}  Versão 3.0.0 ${NC}"
 echo ""
 
 # VERIFICAÇÕES INICIAIS
 
 # Verifica se é root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Erro!!! Execute como root: sudo bash $0${NC}"
     exit 1
 fi
@@ -42,7 +41,7 @@ echo -e "${GREEN}Diretório home: ${NC}$HOME_DIR"
 echo ""
 
 # Verifica distribuição
-if ! command -v apt-get &> /dev/null; then
+if ! command -v apt &> /dev/null; then
     echo -e "${RED}Este script é para sistemas baseados em Debian/Ubuntu${NC}"
     exit 1
 fi
@@ -55,75 +54,25 @@ rm -f /var/lib/dpkg/lock-frontend 2>/dev/null || true
 rm -f /var/lib/dpkg/lock 2>/dev/null || true
 rm -f /var/cache/apt/archives/lock 2>/dev/null || true
 
-# PERGUNTAS DE INSTALAÇÃO
-
-echo ""
-echo -e "${BLUE}============================================${NC}"
-echo -e "${BLUE}  ESCOLHA OS PROGRAMAS PARA INSTALAR${NC}"
-echo -e "${BLUE}============================================${NC}"
-echo ""
-
-INSTALL_CHROME="n"
-read -p "Deseja instalar o Google Chrome? (s/n): " resp_chrome
-if [[ "$resp_chrome" =~ ^[Ss]$ ]]; then 
-    INSTALL_CHROME="s"
-    echo -e "${GREEN} Chrome será instalado${NC}"
-else
-    echo -e "${YELLOW}  - Chrome NÃO será instalado${NC}"
-fi
-
-INSTALL_NOTES="n"
-read -p "Deseja instalar o Featherpad (Bloco de Notas)? (s/n): " resp_notes
-if [[ "$resp_notes" =~ ^[Ss]$ ]]; then 
-    INSTALL_NOTES="s"
-    echo -e "${GREEN}  Featherpad será instalado${NC}"
-else
-    echo -e "${YELLOW}  - Featherpad NÃO será instalado${NC}"
-fi
-
 echo ""
 
 # FASE 1: INSTALAÇÃO BASE
 
 echo -e "${GREEN}[1/8] Instalando Base Gráfica...${NC}"
 
-apt-get update -qq
+apt update -qq
 
 # Pacotes essenciais do XRDP e X11
 echo "  Instalando XRDP e componentes X11..."
-apt-get install -y --no-install-recommends \
-    xrdp \
-    xorgxrdp \
-    xserver-xorg-core \
-    xserver-xorg-input-all \
-    x11-xserver-utils \
-    dbus-x11 \
-    wget \
-    gpg \
-    apt-transport-https \
-    ca-certificates
+apt install -y --no-install-recommends --no-install-suggests xrdp xorgxrdp xserver-xorg-core xserver-xorg-input-all x11-xserver-utils dbus-x11 wget gpg apt-transport-https ca-certificates
 
-# Gerenciador de janelas e utilitários
+# Gerenciador de janelas e utilitários (apps leves para otimizar RAM)
 echo "  Instalando Openbox e utilitários..."
-apt-get install -y --no-install-recommends \
-    openbox \
-    obconf \
-    wmctrl \
-    tint2 \
-    pcmanfm \
-    terminator \
-    feh \
-    zenity \
-    fonts-liberation
+apt install -y --no-install-recommends --no-install-suggests openbox wmctrl tint2 rofi pcmanfm file-roller eog gnome-screenshot gnome-terminal mousepad gnome-calculator evince zenity fonts-liberation yaru-theme-gtk yaru-theme-icon x11-xkb-utils dconf-cli libglib2.0-bin xdg-utils
 
 # Ferramentas de desenvolvimento
 echo "  → Instalando ferramentas..."
-apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    build-essential \
-    git \
-    python3-pip
+apt install -y --no-install-recommends --no-install-suggests curl gnupg build-essential git python3-pip
 
 echo -e "${GREEN}  ✓ Base gráfica instalada com sucesso${NC}"
 echo ""
@@ -132,32 +81,12 @@ echo ""
 
 echo -e "${GREEN}[2/8] Instalando Aplicações...${NC}"
 
-TINT2_LAUNCHERS=""
-
 # Chrome
-if [ "$INSTALL_CHROME" == "s" ]; then
-    echo "  Baixando e instalando Google Chrome..."
-    wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
-    apt-get install -y /tmp/chrome.deb || apt-get install -f -y
-    rm -f /tmp/chrome.deb
-    TINT2_LAUNCHERS+=$'\nlauncher_item_app = /usr/share/applications/google-chrome.desktop'
-    echo -e "${GREEN}    Chrome instalado${NC}"
-fi
-
-# Apps Padrão (sempre instalados)
-TINT2_LAUNCHERS+=$'\nlauncher_item_app = /usr/share/applications/pcmanfm.desktop'
-TINT2_LAUNCHERS+=$'\nlauncher_item_app = /usr/share/applications/terminator.desktop'
-
-# Featherpad
-if [ "$INSTALL_NOTES" == "s" ]; then
-    echo "  → Instalando Featherpad..."
-    apt-get install -y --no-install-recommends featherpad
-    FP_PATH=$(find /usr/share/applications -name "*featherpad.desktop" 2>/dev/null | head -n 1)
-    if [ -n "$FP_PATH" ]; then
-        TINT2_LAUNCHERS+=$'\nlauncher_item_app = '"$FP_PATH"
-    fi
-    echo -e "${GREEN}    Featherpad instalado${NC}"
-fi
+echo "  Baixando e instalando Google Chrome..."
+wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+apt install -y /tmp/chrome.deb || apt install -f -y
+rm -f /tmp/chrome.deb
+echo -e "${GREEN}    Chrome instalado${NC}"
 
 echo -e "${GREEN}  Aplicações instaladas${NC}"
 echo ""
@@ -170,17 +99,15 @@ echo -e "${BLUE}============================================${NC}"
 
 if ! command -v codium >/dev/null 2>&1; then
     echo "  → Adicionando repositório VSCodium..."
-    wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg \
-        | gpg --dearmor | tee /usr/share/keyrings/vscodium-archive-keyring.gpg > /dev/null
-    
-    echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' \
-        | tee /etc/apt/sources.list.d/vscodium.list
-    
-    apt-get update -qq
-    
+    wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg | gpg --dearmor | tee /usr/share/keyrings/vscodium-archive-keyring.gpg > /dev/null
+
+    echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' | tee /etc/apt/sources.list.d/vscodium.list
+
+    apt update -qq
+
     echo "  Instalando VSCodium..."
-    apt-get install -y --no-install-recommends codium
-    
+    apt install -y --no-install-recommends --no-install-suggests codium
+
     echo -e "${GREEN}    VSCodium instalado${NC}"
 else
     echo -e "${GREEN}    VSCodium já está instalado${NC}"
@@ -203,13 +130,9 @@ chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
 echo "  → Instalando extensões..."
 
 # Instala extensões como o usuário correto
-sudo -u $USER_NAME codium --no-sandbox \
-    --user-data-dir "$HOME_DIR/.config/VSCodium" \
-    --install-extension dracula-theme.theme-dracula --force 2>/dev/null || true
+sudo -u $USER_NAME codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>/dev/null || true
 
-sudo -u $USER_NAME codium --no-sandbox \
-    --user-data-dir "$HOME_DIR/.config/VSCodium" \
-    --install-extension PKief.material-icon-theme --force 2>/dev/null || true
+sudo -u $USER_NAME codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension PKief.material-icon-theme --force 2>/dev/null || true
 
 echo "  → Criando configurações..."
 
@@ -229,7 +152,16 @@ cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
   "git.openRepositoryInParentFolders": "always",
   "editor.smoothScrolling": false,
   "workbench.list.smoothScrolling": false,
-  "terminal.integrated.smoothScrolling": false
+  "terminal.integrated.smoothScrolling": false,
+  "telemetry.enableTelemetry": false,
+  "telemetry.enableCrashReporter": false,
+  "update.mode": "none",
+  "extensions.autoCheckUpdates": false,
+  "editor.renderWhitespace": "none",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules/**": true
+  }
 }
 EOF
 
@@ -238,73 +170,336 @@ chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/VSCodium"
 echo -e "${GREEN}  ✓ VSCodium configurado${NC}"
 echo ""
 
-# FASE 5: TINT2 (BARRA DE TAREFAS)
+# Configura GTK3 settings para que PCManFM, Mousepad e outros apps GTK
+# usem o tema Yaru-dark + ícones Yaru corretamente no Openbox
+echo "  → Configurando tema GTK3 para aplicações..."
+mkdir -p "$HOME_DIR/.config/gtk-3.0"
+cat > "$HOME_DIR/.config/gtk-3.0/settings.ini" <<'GTKEOF'
+[Settings]
+gtk-theme-name=Yaru-dark
+gtk-icon-theme-name=Yaru
+gtk-font-name=Sans 11
+gtk-cursor-theme-name=Yaru
+gtk-cursor-theme-size=24
+gtk-toolbar-style=GTK_TOOLBAR_BOTH_HORIZ
+gtk-toolbar-icon-size=GTK_ICON_SIZE_LARGE_TOOLBAR
+gtk-button-images=0
+gtk-menu-images=0
+gtk-enable-event-sounds=0
+gtk-enable-input-feedback-sounds=0
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintslight
+gtk-xft-rgba=rgb
+gtk-application-prefer-dark-theme=1
+GTKEOF
+chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/gtk-3.0"
+echo -e "${GREEN}    GTK3 configurado com tema dark${NC}"
 
-echo -e "${GREEN}[5/8] Configurando Barra de Tarefas...${NC}"
+# Inicializa perfil padrão do gnome-terminal via dconf
+# (sem isso, gnome-terminal pode falhar na primeira execução no Openbox)
+echo "  → Inicializando perfil do GNOME Terminal..."
+PROFILE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "b1dcc9dd-5262-4d8d-a863-c897e6d979b9")
+sudo -u $USER_NAME dbus-launch dconf write /org/gnome/terminal/legacy/profiles:/default "'$PROFILE_ID'" 2>/dev/null || true
+sudo -u $USER_NAME dbus-launch dconf write /org/gnome/terminal/legacy/profiles:/:$PROFILE_ID/visible-name "'Default'" 2>/dev/null || true
+sudo -u $USER_NAME dbus-launch dconf write /org/gnome/terminal/legacy/profiles:/:$PROFILE_ID/use-theme-colors "true" 2>/dev/null || true
+echo -e "${GREEN}    Perfil GNOME Terminal inicializado${NC}"
+
+# FASE 5: SHOW APPLICATIONS (DASHBOARD)
+
+echo -e "${GREEN}[5/8] Configurando Show Applications...${NC}"
 
 mkdir -p "$HOME_DIR/.config/tint2"
+mkdir -p "$HOME_DIR/.config/rofi"
+mkdir -p "$HOME_DIR/.local/bin"
+mkdir -p "$HOME_DIR/.local/share/applications"
+mkdir -p "$HOME_DIR/.local/share/icons"
 
-cat > "$HOME_DIR/.config/tint2/tint2rc" <<EOF
-# Configuração Tint2 - Barra de Tarefas
-panel_mode = multi_monitor
-panel_position = bottom center horizontal
-panel_size = 100% 65
-panel_margin = 0 0
-panel_padding = 4 4 4
-panel_background_id = 1
-wm_menu = 0
-panel_dock = 0
-panel_layer = top
-strut_policy = follow_size
-panel_window_name = tint2
-panel_items = LTC
+# Cria ícone SVG do grid (Show Applications)
+cat > "$HOME_DIR/.local/share/icons/show-apps.svg" <<'SVGEOF'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <circle cx="10" cy="10" r="4" fill="#f8f8f2"/>
+  <circle cx="24" cy="10" r="4" fill="#f8f8f2"/>
+  <circle cx="38" cy="10" r="4" fill="#f8f8f2"/>
+  <circle cx="10" cy="24" r="4" fill="#f8f8f2"/>
+  <circle cx="24" cy="24" r="4" fill="#f8f8f2"/>
+  <circle cx="38" cy="24" r="4" fill="#f8f8f2"/>
+  <circle cx="10" cy="38" r="4" fill="#f8f8f2"/>
+  <circle cx="24" cy="38" r="4" fill="#f8f8f2"/>
+  <circle cx="38" cy="38" r="4" fill="#f8f8f2"/>
+</svg>
+SVGEOF
 
-# LAUNCHERS
-launcher_icon_theme = Adwaita
-launcher_padding = 10 4 10
-launcher_background_id = 0
-launcher_icon_background_id = 0
-launcher_icon_size = 48
+# Cria script do dashboard
+cat > "$HOME_DIR/.local/bin/show-applications" <<'SCRIPTEOF'
+#!/bin/bash
+# Show Applications Dashboard - GNOME-style app grid via rofi
+rofi -show drun -theme "$HOME/.config/rofi/dashboard.rasi" -drun-display-format "{name}" -show-icons -mesg "Esc para fechar  |  Scroll ou setas para navegar"
+SCRIPTEOF
 
-$TINT2_LAUNCHERS
+chmod +x "$HOME_DIR/.local/bin/show-applications"
 
-# TASKBAR
-taskbar_mode = single_desktop
-taskbar_padding = 4 4 4
-taskbar_background_id = 0
-taskbar_active_background_id = 2
-taskbar_name = 1
-taskbar_name_font_color = #f8f8f2 100
-task_icon = 1
-task_text = 1
-task_centered = 1
-task_maximum_size = 200 55
+# Cria .desktop para o botão Show Applications
+cat > "$HOME_DIR/.local/share/applications/show-applications.desktop" <<'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=Show Applications
+Icon=show-apps
+Exec=show-applications
+NoDisplay=true
+DESKTOPEOF
 
-# RELÓGIO
-time1_format = %H:%M
-time1_font = Sans Bold 14
-time2_format = %d/%m
-time2_font = Sans 10
-clock_font_color = #f8f8f2 100
-clock_padding = 10 4
-clock_background_id = 0
-clock_lclick_command = zenity --calendar
+# Tema rofi - dashboard fullscreen moderno
+cat > "$HOME_DIR/.config/rofi/dashboard.rasi" <<'ROFIEOF'
+* {
+    bg:           #1a1b26ee;
+    bg-solid:     #1a1b26;
+    bg-card:      #44475a99;
+    fg:           #f8f8f2;
+    fg-dim:       #f8f8f2aa;
+    selected:     #44475acc;
+    background-color: transparent;
+    text-color:   @fg;
+    font:         "Sans 12";
+}
 
-# ESTILOS
+window {
+    fullscreen:   true;
+    background-color: @bg;
+    padding:      120px 150px;
+}
+
+mainbox {
+    children:     [ inputbar, listview, message ];
+    spacing:      40px;
+}
+
+inputbar {
+    children:     [ prompt, entry ];
+    background-color: @bg-card;
+    border:       1px solid;
+    border-color: #6272a444;
+    border-radius: 16px;
+    padding:      16px 24px;
+    margin:       0 200px;
+}
+
+prompt {
+    text-color:   #6272a4;
+    margin:       0 12px 0 0;
+    font:         "Sans Bold 12";
+}
+
+entry {
+    placeholder:  "Buscar aplicativos...";
+    placeholder-color: #6272a466;
+    text-color:   @fg;
+}
+
+listview {
+    columns:       5;
+    lines:         3;
+    spacing:       20px;
+    cycle:         false;
+    dynamic:       true;
+    fixed-columns: true;
+    layout:        vertical;
+    scrollbar:     true;
+}
+
+scrollbar {
+    handle-width:     8px;
+    handle-color:     #6272a4;
+    background-color: #44475a44;
+    border-radius:    4px;
+    margin:           0 0 0 10px;
+}
+
+message {
+    background-color: transparent;
+    padding:          10px 0 0 0;
+}
+
+textbox {
+    text-color:       #6272a466;
+    horizontal-align: 0.5;
+    font:             "Sans 10";
+}
+
+element {
+    orientation:      vertical;
+    padding:          20px 10px;
+    border-radius:    16px;
+    cursor:           pointer;
+}
+
+/* Feedback Visual ao Selecionar */
+element selected.normal {
+    background-color: @selected;
+    border:           1px solid;
+    border-color:     #6272a466;
+}
+
+element-icon {
+    size:             64px;
+    horizontal-align: 0.5;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align:   0.5;
+    font:             "Sans 10";
+    margin:           10px 0px 0px 0px;
+}
+ROFIEOF
+
+# Tint2 - dock moderno estilo Ubuntu 24 (flutuante, arredondado)
+cat > "$HOME_DIR/.config/tint2/tint2rc" <<'TINT2EOF'
+# Tint2 - Dock moderno estilo Ubuntu 24
+
+# BACKGROUNDS
+# ID 1 - Panel background (cor sólida)
 rounded = 0
 border_width = 0
+border_sides = TBLR
 background_color = #282a36 100
-border_color = #282a36 100
+border_color = #282a36 0
+background_color_hover = #282a36 100
+border_color_hover = #282a36 0
+background_color_pressed = #282a36 100
+border_color_pressed = #282a36 0
 
-rounded = 4
+# ID 2 - Launcher hover (botão Menu)
+rounded = 10
+border_width = 1
+border_sides = TBLR
+background_color = #282a36 0
+border_color = #6272a4 0
+background_color_hover = #6272a4 90
+border_color_hover = #6272a4 60
+background_color_pressed = #6272a4 100
+border_color_pressed = #6272a4 80
+
+# ID 3 - Taskbar item (app aberto) - normal
+rounded = 8
 border_width = 0
+border_sides = TBLR
+background_color = #44475a 60
+border_color = #44475a 0
+background_color_hover = #6272a4 80
+border_color_hover = #6272a4 0
+background_color_pressed = #8be9fd 90
+border_color_pressed = #8be9fd 0
+
+# ID 4 - Taskbar item ativo (app em foco)
+rounded = 8
+border_width = 0
+border_sides = TBLR
+background_color = #6272a4 90
+border_color = #6272a4 0
+background_color_hover = #6272a4 100
+border_color_hover = #6272a4 0
+background_color_pressed = #8be9fd 100
+border_color_pressed = #8be9fd 0
+
+# ID 5 - Indicador de ativo (linha inferior)
+rounded = 3
+border_width = 0
+border_sides = TBLR
 background_color = #6272a4 100
-border_color = #6272a4 100
-EOF
+border_color = #6272a4 0
+background_color_hover = #6272a4 100
+border_color_hover = #6272a4 0
+background_color_pressed = #6272a4 100
+border_color_pressed = #6272a4 0
+
+# PANEL
+panel_items = LTFC
+panel_size = 100% 44
+panel_margin = 0 0
+panel_padding = 8 0 8
+panel_background_id = 1
+panel_layer = top
+panel_monitor = all
+panel_position = bottom center horizontal
+panel_dock = 0
+strut_policy = follow_size
+panel_window_name = tint2
+wm_menu = 0
+autohide = 0
+
+# LAUNCHER (Show Applications button)
+launcher_padding = 4 4 4
+launcher_background_id = 0
+launcher_icon_background_id = 2
+launcher_icon_size = 32
+launcher_icon_theme = Yaru
+launcher_tooltip = 1
+launcher_item_app = __HOME__/.local/share/applications/show-applications.desktop
+
+# TASKBAR (apps abertos na barra)
+taskbar_mode = single_desktop
+taskbar_hide_if_empty = 0
+taskbar_padding = 4 2 4
+taskbar_background_id = 0
+taskbar_active_background_id = 0
+taskbar_name = 0
+taskbar_hide_inactive_tasks = 0
+taskbar_hide_different_monitor = 0
+taskbar_always_show_all_desktop_tasks = 0
+taskbar_sort_order = none
+
+# TASK (cada app aberto)
+task_text = 1
+task_icon = 1
+task_centered = 1
+task_tooltip = 1
+task_maximum_size = 200 40
+task_padding = 6 3 6
+task_font = Sans 11
+task_font_color = #f8f8f2 80
+task_icon_size = 22
+task_background_id = 3
+task_active_background_id = 4
+task_active_font_color = #f8f8f2 100
+task_urgent_background_id = 4
+task_urgent_font_color = #ff5555 100
+
+# Indicador do app ativo (linha na parte inferior do ícone)
+task_active_icon_asb = 100 0 0
+task_icon_asb = 100 0 -20
+
+# Mouse actions nas tasks
+mouse_left = toggle_iconify
+mouse_middle = close
+mouse_right = none
+mouse_scroll_up = toggle
+mouse_scroll_down = iconify
+
+# CLOCK (canto inferior direito)
+time1_format = %H:%M
+time1_font = Sans Bold 12
+time2_format = %a %d %b
+time2_font = Sans 9
+clock_font_color = #f8f8f2 100
+clock_padding = 14 0
+clock_background_id = 0
+clock_lclick_command = zenity --calendar
+clock_tooltip = %A, %d de %B de %Y
+TINT2EOF
+
+# Substitui __HOME__ pelo caminho real do usuário no tint2rc
+sed -i "s|__HOME__|$HOME_DIR|g" "$HOME_DIR/.config/tint2/tint2rc"
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/tint2"
+chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/rofi"
+chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.local"
 
-echo -e "${GREEN}  Tint2 configurado${NC}"
+# Atualiza cache de ícones para que o SVG customizado seja encontrado
+gtk-update-icon-cache -f -t "$HOME_DIR/.local/share/icons" 2>/dev/null || true
+update-icon-caches /usr/share/icons/hicolor 2>/dev/null || true
+
+echo -e "${GREEN}  Show Applications configurado${NC}"
 echo ""
 
 # FASE 6: OPENBOX
@@ -313,72 +508,246 @@ echo -e "${GREEN}[6/8] Configurando Openbox...${NC}"
 
 mkdir -p "$HOME_DIR/.config/openbox"
 
-# Baixa wallpaper
-echo "  Baixando wallpaper..."
-wget -q "$WALLPAPER_URL" -O "$HOME_DIR/.config/openbox/wallpaper.jpg" 2>/dev/null || true
-chown $USER_NAME:$USER_NAME "$HOME_DIR/.config/openbox/wallpaper.jpg" 2>/dev/null || true
+# Cria tema Openbox personalizado (dark flat, estilo Dracula)
+echo "  → Criando tema Dracula-Flat para Openbox..."
+
+THEME_DIR="$HOME_DIR/.themes/Dracula-Flat/openbox-3"
+mkdir -p "$THEME_DIR"
+
+cat > "$THEME_DIR/themerc" <<'THEMEEOF'
+# Dracula-Flat - Tema Openbox dark moderno
+
+# Título ativo
+window.active.title.bg: flat solid
+window.active.title.bg.color: #282a36
+window.active.label.bg: parentrelative
+window.active.label.text.color: #f8f8f2
+window.active.label.text.font: shadow=n
+window.active.label.text.justify: center
+
+# Título inativo
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #21222c
+window.inactive.label.bg: parentrelative
+window.inactive.label.text.color: #6272a4
+window.inactive.label.text.font: shadow=n
+window.inactive.label.text.justify: center
+
+# Botões ativos
+window.active.button.unpressed.bg: flat solid
+window.active.button.unpressed.bg.color: #282a36
+window.active.button.unpressed.image.color: #bd93f9
+window.active.button.hover.bg: flat solid
+window.active.button.hover.bg.color: #44475a
+window.active.button.hover.image.color: #ff79c6
+window.active.button.pressed.bg: flat solid
+window.active.button.pressed.bg.color: #6272a4
+window.active.button.pressed.image.color: #f8f8f2
+window.active.button.disabled.bg: flat solid
+window.active.button.disabled.bg.color: #282a36
+window.active.button.disabled.image.color: #44475a
+window.active.button.toggled.unpressed.bg: flat solid
+window.active.button.toggled.unpressed.bg.color: #282a36
+window.active.button.toggled.unpressed.image.color: #50fa7b
+window.active.button.toggled.hover.bg: flat solid
+window.active.button.toggled.hover.bg.color: #44475a
+window.active.button.toggled.hover.image.color: #50fa7b
+window.active.button.toggled.pressed.bg: flat solid
+window.active.button.toggled.pressed.bg.color: #6272a4
+window.active.button.toggled.pressed.image.color: #f8f8f2
+
+# Botões inativos
+window.inactive.button.unpressed.bg: flat solid
+window.inactive.button.unpressed.bg.color: #21222c
+window.inactive.button.unpressed.image.color: #44475a
+window.inactive.button.hover.bg: flat solid
+window.inactive.button.hover.bg.color: #44475a
+window.inactive.button.hover.image.color: #6272a4
+window.inactive.button.pressed.bg: flat solid
+window.inactive.button.pressed.bg.color: #6272a4
+window.inactive.button.pressed.image.color: #f8f8f2
+window.inactive.button.disabled.bg: flat solid
+window.inactive.button.disabled.bg.color: #21222c
+window.inactive.button.disabled.image.color: #282a36
+window.inactive.button.toggled.unpressed.bg: flat solid
+window.inactive.button.toggled.unpressed.bg.color: #21222c
+window.inactive.button.toggled.unpressed.image.color: #44475a
+window.inactive.button.toggled.hover.bg: flat solid
+window.inactive.button.toggled.hover.bg.color: #44475a
+window.inactive.button.toggled.hover.image.color: #6272a4
+window.inactive.button.toggled.pressed.bg: flat solid
+window.inactive.button.toggled.pressed.bg.color: #6272a4
+window.inactive.button.toggled.pressed.image.color: #f8f8f2
+
+# Handle e grip
+window.active.handle.bg: flat solid
+window.active.handle.bg.color: #282a36
+window.active.grip.bg: flat solid
+window.active.grip.bg.color: #44475a
+window.inactive.handle.bg: flat solid
+window.inactive.handle.bg.color: #21222c
+window.inactive.grip.bg: flat solid
+window.inactive.grip.bg.color: #282a36
+
+# Bordas
+border.width: 1
+border.color: #191a21
+window.active.border.color: #191a21
+window.inactive.border.color: #191a21
+window.active.client.color: #282a36
+window.inactive.client.color: #21222c
+
+# Padding
+padding.width: 8
+padding.height: 4
+window.handle.width: 0
+window.client.padding.width: 0
+window.client.padding.height: 0
+
+# Menu
+menu.border.width: 1
+menu.border.color: #44475a
+menu.title.bg: flat solid
+menu.title.bg.color: #282a36
+menu.title.text.color: #bd93f9
+menu.title.text.font: shadow=n
+menu.title.text.justify: center
+menu.items.bg: flat solid
+menu.items.bg.color: #282a36
+menu.items.text.color: #f8f8f2
+menu.items.disabled.text.color: #6272a4
+menu.items.font: shadow=n
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #44475a
+menu.items.active.text.color: #f8f8f2
+menu.separator.color: #44475a
+menu.separator.width: 1
+menu.separator.padding.width: 6
+menu.separator.padding.height: 3
+
+# OSD
+osd.bg: flat solid
+osd.bg.color: #282a36
+osd.border.width: 1
+osd.border.color: #44475a
+osd.label.bg: flat solid
+osd.label.bg.color: #282a36
+osd.label.text.color: #f8f8f2
+osd.hilight.bg: flat solid
+osd.hilight.bg.color: #bd93f9
+osd.unhilight.bg: flat solid
+osd.unhilight.bg.color: #44475a
+THEMEEOF
+
+# Botões XBM (8x8 pixels)
+cat > "$THEME_DIR/close.xbm" <<'XBM'
+#define close_width 8
+#define close_height 8
+static unsigned char close_bits[] = {
+   0xc3, 0x66, 0x3c, 0x18, 0x18, 0x3c, 0x66, 0xc3};
+XBM
+
+cat > "$THEME_DIR/max.xbm" <<'XBM'
+#define max_width 8
+#define max_height 8
+static unsigned char max_bits[] = {
+   0xff, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xff};
+XBM
+
+cat > "$THEME_DIR/max_toggled.xbm" <<'XBM'
+#define max_toggled_width 8
+#define max_toggled_height 8
+static unsigned char max_toggled_bits[] = {
+   0x00, 0x3c, 0x24, 0x24, 0x24, 0x3c, 0x00, 0x00};
+XBM
+
+cat > "$THEME_DIR/iconify.xbm" <<'XBM'
+#define iconify_width 8
+#define iconify_height 8
+static unsigned char iconify_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7e, 0x00};
+XBM
+
+cat > "$THEME_DIR/desk.xbm" <<'XBM'
+#define desk_width 8
+#define desk_height 8
+static unsigned char desk_bits[] = {
+   0x7e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+XBM
+
+cat > "$THEME_DIR/desk_toggled.xbm" <<'XBM'
+#define desk_toggled_width 8
+#define desk_toggled_height 8
+static unsigned char desk_toggled_bits[] = {
+   0x7e, 0x7e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+XBM
+
+cat > "$THEME_DIR/bullet.xbm" <<'XBM'
+#define bullet_width 8
+#define bullet_height 8
+static unsigned char bullet_bits[] = {
+   0x00, 0x04, 0x0c, 0x1c, 0x3c, 0x1c, 0x0c, 0x04};
+XBM
+
+chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.themes"
+echo -e "${GREEN}    Tema Dracula-Flat criado${NC}"
 
 # Configuração do Openbox
 echo "  → Criando configuração do Openbox..."
 
-cat > "$HOME_DIR/.config/openbox/rc.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">
+printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">' > "$HOME_DIR/.config/openbox/rc.xml"
+cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF'
   <placement>
     <policy>Smart</policy>
     <center>yes</center>
   </placement>
-  
   <theme>
-    <name>Clearlooks</name>
-    <keepBorder>no</keepBorder>
+    <name>Dracula-Flat</name>
+    <keepBorder>yes</keepBorder>
+    <titleLayout>LIMC</titleLayout>
     <font place="ActiveWindow"><name>sans</name><size>14</size></font>
     <font place="InactiveWindow"><name>sans</name><size>14</size></font>
     <font place="MenuHeader"><name>sans</name><size>12</size></font>
     <font place="MenuItem"><name>sans</name><size>12</size></font>
     <font place="OnScreenDisplay"><name>sans</name><size>12</size></font>
   </theme>
-  
   <desktops><number>1</number></desktops>
-  
   <keyboard>
     <keybind key="A-Tab"><action name="NextWindow"/></keybind>
     <keybind key="A-S-Tab"><action name="PreviousWindow"/></keybind>
-    <keybind key="C-A-t"><action name="Execute"><command>terminator</command></action></keybind>
+    <keybind key="C-A-t"><action name="Execute"><command>gnome-terminal</command></action></keybind>
+    <keybind key="Super_L"><action name="Execute"><command>show-applications</command></action></keybind>
   </keyboard>
-  
   <applications>
-    <application class="VSCodium">
-      <decor>no</decor>
-      <maximized>yes</maximized>
-      <layer>below</layer>
-      <skip_taskbar>yes</skip_taskbar>
-      <skip_pager>yes</skip_pager>
-    </application>
-    
-    <application class="FeatherPad"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="VSCodium"><decor>no</decor><maximized>yes</maximized><layer>below</layer><skip_taskbar>yes</skip_taskbar><skip_pager>yes</skip_pager></application>
+    <application class="Mousepad"><decor>yes</decor><maximized>no</maximized></application>
     <application class="Google-chrome"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="Gnome-terminal"><decor>yes</decor><maximized>no</maximized></application>
     <application class="Pcmanfm"><decor>yes</decor><maximized>no</maximized></application>
-    <application class="Terminator"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="File-roller"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="Eog"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="Gnome-calculator"><decor>yes</decor><maximized>no</maximized></application>
+    <application class="Evince"><decor>yes</decor><maximized>no</maximized></application>
     <application class="tint2"><decor>no</decor></application>
   </applications>
 </openbox_config>
-EOF
+RCEOF
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/openbox"
 
 echo -e "${GREEN}  ✓ Openbox configurado${NC}"
 echo ""
 
-# FASE 7: CONFIGURAÇÃO XRDP 
+# FASE 7: CONFIGURAÇÃO XRDP
 
-echo -e "${GREEN}[7/8] Configurando XRDP....${NC}"
+echo -e "${GREEN}[7/8] Configurando XRDP...${NC}"
 
 # Otimizações no xrdp.ini
 echo "  → Otimizando xrdp.ini..."
 if [ -f /etc/xrdp/xrdp.ini ]; then
     sed -i 's/tcp_nodelay=false/tcp_nodelay=true/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
-    sed -i 's/max_bpp=32/max_bpp=24/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
+    sed -i 's/max_bpp=\(32\|24\)/max_bpp=16/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
+    sed -i 's/#use_compression=yes/use_compression=yes/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
 fi
 
 # Cria .xsession correto no home do usuário
@@ -420,7 +789,7 @@ chown $USER_NAME:$USER_NAME "$HOME_DIR/.xsession"
 
 echo -e "${GREEN}    .xsession criado: $(wc -c < "$HOME_DIR/.xsession") bytes${NC}"
 
-# Cria startwm.sh 
+# Cria startwm.sh
 echo "  → Criando startwm.sh..."
 
 if [ -f /etc/xrdp/startwm.sh ]; then
@@ -481,6 +850,17 @@ cat > "$HOME_DIR/.config/openbox/autostart" <<AUTOSTART_CONTENT
 exec > /tmp/openbox-autostart.log 2>&1
 echo "Autostart iniciado em \$(date)"
 
+# Garante ~/.local/bin no PATH
+export PATH="\$HOME/.local/bin:\$PATH"
+
+# Aplica tema GTK Yaru-dark (visual moderno Ubuntu)
+export GTK_THEME=Yaru-dark
+
+# GTK2 fallback (Yaru-dark gtk2 pode não existir no 22.04)
+if [ -f /usr/share/themes/Yaru-dark/gtk-2.0/gtkrc ]; then
+    export GTK2_RC_FILES=/usr/share/themes/Yaru-dark/gtk-2.0/gtkrc
+fi
+
 # Configura teclado ABNT2
 setxkbmap -layout br -variant abnt2 &
 
@@ -489,27 +869,19 @@ xset s off &
 xset -dpms &
 xset s noblank &
 
-# Background inicial
-if [ -f ~/.config/openbox/wallpaper.jpg ]; then
-    feh --bg-fill ~/.config/openbox/wallpaper.jpg &
-    echo "Wallpaper carregado"
-else
-    xsetroot -solid "$BG_COLOR" &
-    echo "Background sólido aplicado"
-fi
+# Background sólido (cor escura estilo Ubuntu)
+xsetroot -solid "$BG_COLOR" &
+echo "Background sólido aplicado"
 
-# Inicia tint2
+# Inicia tint2 (dock moderno com Show Applications + Relógio)
 sleep 1
 tint2 &
 echo "Tint2 iniciado"
 
-# Abre VSCodium
+# Abre VSCodium (fixado como wallpaper, acima da barra)
 sleep 2
-codium --disable-gpu --no-sandbox --disable-dev-shm-usage --disable-software-rasterizer --disable-smooth-scrolling &
+codium --disable-gpu --no-sandbox --disable-dev-shm-usage --disable-software-rasterizer --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
 echo "VSCodium iniciado"
-
-# Transição para cor sólida após 10s
-(sleep 10 && xsetroot -solid "$BG_COLOR") &
 
 echo "Autostart finalizado em \$(date)"
 AUTOSTART_CONTENT
@@ -520,9 +892,301 @@ chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
 echo -e "${GREEN}  Configuração XRDP finalizada${NC}"
 echo ""
 
+# LIMPEZA DO MENU DE APLICATIVOS
+# Mostra apenas os apps selecionados no Rofi, esconde o resto com NoDisplay=true
+
+echo -e "${GREEN}[+] Limpando menu de aplicativos...${NC}"
+
+ALLOWED_APPS=(
+    "google-chrome.desktop"
+    "pcmanfm.desktop"
+    "org.gnome.FileRoller.desktop"
+    "file-roller.desktop"
+    "org.gnome.eog.desktop"
+    "eog.desktop"
+    "org.gnome.Screenshot.desktop"
+    "gnome-screenshot.desktop"
+    "org.gnome.Terminal.desktop"
+    "gnome-terminal.desktop"
+    "mousepad.desktop"
+    "org.gnome.Evince.desktop"
+    "evince.desktop"
+    "org.gnome.Calculator.desktop"
+    "gnome-calculator.desktop"
+)
+
+# Limpa overrides antigos de execuções anteriores para evitar lixo
+echo "  Limpando overrides antigos..."
+rm -f "$HOME_DIR/.local/share/applications"/*.desktop 2>/dev/null || true
+
+# Função para esconder um .desktop (cria override com NoDisplay=true)
+hide_desktop() {
+    local file="$1"
+    local filename=$(basename "$file")
+    cp "$file" "$HOME_DIR/.local/share/applications/$filename"
+    if ! grep -q "^NoDisplay=" "$HOME_DIR/.local/share/applications/$filename"; then
+        echo "NoDisplay=true" >> "$HOME_DIR/.local/share/applications/$filename"
+    else
+        sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$HOME_DIR/.local/share/applications/$filename"
+    fi
+}
+
+# Varre /usr/share/applications e esconde tudo que não está na lista
+for desktop_file in /usr/share/applications/*.desktop; do
+    [ -f "$desktop_file" ] || continue
+    filename=$(basename "$desktop_file")
+
+    is_allowed=false
+    for allowed in "${ALLOWED_APPS[@]}"; do
+        if [ "$filename" == "$allowed" ]; then
+            is_allowed=true
+            break
+        fi
+    done
+
+    if [ "$is_allowed" == "false" ]; then
+        hide_desktop "$desktop_file"
+    fi
+done
+
+# Para apps permitidos com OnlyShowIn/NotShowIn, cria override local sem a restrição
+# (rofi drun respeita OnlyShowIn e esconde apps que não pertencem ao desktop atual)
+echo "  Corrigindo apps com OnlyShowIn (incompatível com Openbox)..."
+for allowed in "${ALLOWED_APPS[@]}"; do
+    src="/usr/share/applications/$allowed"
+    dst="$HOME_DIR/.local/share/applications/$allowed"
+    if [ -f "$src" ] && grep -qE "^(OnlyShowIn|NotShowIn)=" "$src"; then
+        cp "$src" "$dst"
+        sed -i '/^OnlyShowIn=/d' "$dst"
+        sed -i '/^NotShowIn=/d' "$dst"
+        echo "    ✓ $allowed (removido OnlyShowIn/NotShowIn)"
+    fi
+done
+
+# Força esconder apps que podem estar em outros diretórios
+# VSCodium (fixado no fundo, não deve aparecer no menu)
+FORCE_HIDE=(
+    "codium.desktop"
+    "codium-url-handler.desktop"
+    "thunar.desktop"
+    "org.xfce.thunar.desktop"
+    "org.xfce.thunar-settings.desktop"
+    "xfce4-about.desktop"
+    "xfce4-terminal.desktop"
+    "xfce4-terminal-emulator.desktop"
+    "org.xfce.mousepad.desktop"
+    "leafpad.desktop"
+    "nautilus-autorun-software.desktop"
+    "org.gnome.Nautilus.desktop"
+    "nautilus.desktop"
+    "org.gnome.TextEditor.desktop"
+    "gnome-text-editor.desktop"
+    "org.gnome.gedit.desktop"
+    "gedit.desktop"
+)
+
+for app_name in "${FORCE_HIDE[@]}"; do
+    # Cria override direto mesmo que o .desktop não exista em /usr/share/applications
+    cat > "$HOME_DIR/.local/share/applications/$app_name" <<HIDEEOF
+[Desktop Entry]
+Type=Application
+Name=Hidden
+NoDisplay=true
+HIDEEOF
+done
+
+# Cria .desktop para apps que podem não ter um (garante que aparecem no rofi)
+if [ ! -f /usr/share/applications/org.gnome.Terminal.desktop ] && [ ! -f /usr/share/applications/gnome-terminal.desktop ]; then
+    cat > "$HOME_DIR/.local/share/applications/gnome-terminal.desktop" <<'TERMEOF'
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Comment=GNOME Terminal
+Exec=gnome-terminal
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+TERMEOF
+    echo "    + Criado gnome-terminal.desktop (não existia)"
+fi
+
+if [ ! -f /usr/share/applications/mousepad.desktop ]; then
+    cat > "$HOME_DIR/.local/share/applications/mousepad.desktop" <<'MOUSEEOF'
+[Desktop Entry]
+Type=Application
+Name=Editor de Texto
+Comment=Mousepad
+Exec=mousepad
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;
+MOUSEEOF
+    echo "    + Criado mousepad.desktop (não existia)"
+fi
+
+if [ ! -f /usr/share/applications/pcmanfm.desktop ]; then
+    cat > "$HOME_DIR/.local/share/applications/pcmanfm.desktop" <<'PCMEOF'
+[Desktop Entry]
+Type=Application
+Name=Arquivos
+Comment=PCManFM - Gerenciador de Arquivos
+Exec=pcmanfm
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileManager;
+PCMEOF
+    echo "    + Criado pcmanfm.desktop (não existia)"
+fi
+
+if [ ! -f /usr/share/applications/org.gnome.Calculator.desktop ] && [ ! -f /usr/share/applications/gnome-calculator.desktop ]; then
+    cat > "$HOME_DIR/.local/share/applications/gnome-calculator.desktop" <<'CALCEOF'
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Comment=GNOME Calculator
+Exec=gnome-calculator
+Icon=accessories-calculator
+Terminal=false
+Categories=Utility;Calculator;
+CALCEOF
+    echo "    + Criado gnome-calculator.desktop (não existia)"
+fi
+
+# Recria o .desktop do show-applications (foi apagado na limpeza)
+cat > "$HOME_DIR/.local/share/applications/show-applications.desktop" <<'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=Show Applications
+Icon=show-apps
+Exec=show-applications
+NoDisplay=true
+DESKTOPEOF
+
+chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.local/share/applications"
+echo -e "${GREEN}  ✓ Menu limpo - apenas apps selecionados visíveis${NC}"
+echo ""
+
 # FASE 8: FINALIZAÇÃO
 
 echo -e "${GREEN}[8/8] Finalizando Instalação...${NC}"
+
+# Configura ZRAM (swap comprimido em RAM para reduzir latência em VM)
+echo "  → Configurando ZRAM..."
+apt install -y --no-install-recommends --no-install-suggests zram-tools 2>/dev/null || true
+
+# Configura ZRAM com lz4 (compressão ultra-rápida, ideal para VMs com CPU limitada)
+cat > /etc/default/zramswap <<'ZRAMEOF'
+ALGO=lz4
+PERCENT=60
+PRIORITY=100
+ZRAMEOF
+echo -e "${GREEN}    ZRAM configurado (60% da RAM, compressão lz4)${NC}"
+
+# Tunagem do kernel para otimizar uso de memória
+echo "  → Configurando parâmetros de kernel (sysctl)..."
+# Remove entradas antigas para evitar duplicatas
+sed -i '/^vm.swappiness/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.vfs_cache_pressure/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.dirty_ratio/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.dirty_background_ratio/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.page-cluster/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.watermark_boost_factor/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^kernel.nmi_watchdog/d' /etc/sysctl.conf 2>/dev/null || true
+
+cat >> /etc/sysctl.conf <<'SYSCTLEOF'
+vm.swappiness=180
+vm.vfs_cache_pressure=50
+vm.dirty_ratio=10
+vm.dirty_background_ratio=5
+vm.page-cluster=0
+vm.watermark_boost_factor=0
+kernel.nmi_watchdog=0
+SYSCTLEOF
+sysctl -p 2>/dev/null || true
+echo -e "${GREEN}    Parâmetros de kernel otimizados${NC}"
+
+# Desabilita swap em disco se existir (zram é mais rápido em VM)
+swapoff -a 2>/dev/null || true
+# Remove entradas de swap de disco do fstab (mantém apenas zram)
+sed -i '/\sswap\s/d' /etc/fstab 2>/dev/null || true
+
+# Ativa zram
+systemctl enable zramswap 2>/dev/null || true
+systemctl restart zramswap 2>/dev/null || true
+
+echo -e "${GREEN}    ZRAM ativo${NC}"
+
+# Desabilita serviços desnecessários em VM (economia de RAM)
+echo "  → Desabilitando serviços desnecessários..."
+DISABLE_SERVICES=(
+    "ModemManager"
+    "NetworkManager-wait-online"
+    "accounts-daemon"
+    "power-profiles-daemon"
+    "switcheroo-control"
+    "cups"
+    "cups-browsed"
+    "avahi-daemon"
+    "bluetooth"
+    "wpa_supplicant"
+    "packagekit"
+    "snapd"
+    "snapd.seeded"
+    "snapd.socket"
+    "unattended-upgrades"
+)
+
+for svc in "${DISABLE_SERVICES[@]}"; do
+    if systemctl list-unit-files "$svc.service" 2>/dev/null | grep -q "$svc"; then
+        systemctl stop "$svc" 2>/dev/null || true
+        systemctl disable "$svc" 2>/dev/null || true
+        systemctl mask "$svc" 2>/dev/null || true
+        echo "    ✗ $svc desabilitado"
+    fi
+done
+echo -e "${GREEN}    Serviços desnecessários desabilitados${NC}"
+
+# Limita tamanho do journal do systemd (evita consumo crescente de RAM/disco)
+echo "  → Limitando journal do systemd..."
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/size-limit.conf <<'JOURNALEOF'
+[Journal]
+SystemMaxUse=50M
+RuntimeMaxUse=16M
+JOURNALEOF
+systemctl restart systemd-journald 2>/dev/null || true
+echo -e "${GREEN}    Journal limitado (50M disco, 16M runtime)${NC}"
+
+# Desabilita core dumps (economia de disco e memória)
+echo "  → Desabilitando core dumps..."
+sed -i '/\* hard core 0/d' /etc/security/limits.conf 2>/dev/null || true
+sed -i '/\* soft core 0/d' /etc/security/limits.conf 2>/dev/null || true
+echo "* hard core 0" >> /etc/security/limits.conf
+echo "* soft core 0" >> /etc/security/limits.conf
+if ! grep -q "kernel.core_pattern" /etc/sysctl.conf 2>/dev/null; then
+    echo "kernel.core_pattern=/dev/null" >> /etc/sysctl.conf
+    sysctl -w kernel.core_pattern=/dev/null 2>/dev/null || true
+fi
+echo -e "${GREEN}    Core dumps desabilitados${NC}"
+
+# Instala earlyoom (proteção contra OOM - mata processo menos importante antes de congelar)
+echo "  → Instalando earlyoom..."
+apt install -y --no-install-recommends --no-install-suggests earlyoom 2>/dev/null || true
+if [ -f /etc/default/earlyoom ]; then
+    cat > /etc/default/earlyoom <<'EOOMEOF'
+EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --prefer '(chrome|Chrome)' --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
+EOOMEOF
+    systemctl enable earlyoom 2>/dev/null || true
+    systemctl restart earlyoom 2>/dev/null || true
+fi
+echo -e "${GREEN}    earlyoom configurado${NC}"
+
+# Limpeza de cache apt (libera espaço em disco)
+echo "  → Limpando cache do apt..."
+apt autoremove -y 2>/dev/null || true
+apt clean 2>/dev/null || true
+rm -rf /var/lib/apt/lists/* 2>/dev/null || true
+echo -e "${GREEN}    Cache apt limpo${NC}"
 
 # Permissões finais
 echo "  Ajustando permissões..."
