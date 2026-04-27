@@ -14,7 +14,7 @@ NC='\033[0m'
 
 echo ""
 echo -e "${BLUE} INSTALAÇÃO DE AMBIENTE DE DESENVOLVIMENTO ${NC}"
-echo -e "${BLUE}  Versão 3.0.0 ${NC}"
+echo -e "${BLUE}  Versão 3.1.0 ${NC}"
 echo ""
 
 # VERIFICAÇÕES INICIAIS
@@ -742,8 +742,107 @@ echo ""
 
 echo -e "${GREEN}[7/8] Configurando XRDP...${NC}"
 
+# Configura layout moderno e isola Xorg
+echo "  → Configurando logo PNG e tema Dracula na tela de login..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOGO_DEST="/etc/xrdp/logo-vsde.png"
+LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.png"
+
+if [ -f "$LOGO_SRC" ]; then
+    cp "$LOGO_SRC" "$LOGO_DEST"
+    chmod 644 "$LOGO_DEST"
+    echo -e "${GREEN} ✓ Logo customizada copiada${NC}"
+    LOGO_FILENAME="$LOGO_DEST"
+else
+    echo -e "${YELLOW} Logo customizada não encontrada. Ficara sem logo.${NC}"
+    LOGO_FILENAME=""
+fi
+
+python3 - <<PYEOF
+import re, sys
+
+ini_path = "/etc/xrdp/xrdp.ini"
+try:
+    with open(ini_path, "r") as f:
+        content = f.read()
+except FileNotFoundError:
+    print(f"  ERRO: {ini_path} não encontrado")
+    sys.exit(1)
+
+def set_key(text, key, value):
+    pattern = rf"^({re.escape(key)}\s*=).*\$"
+    new_text, n = re.subn(pattern, rf"\g<1>{value}", text, count=1, flags=re.MULTILINE)
+    if n > 0:
+        return new_text
+    pattern_commented = rf"^[#;]\s*{re.escape(key)}\s*=.*\$"
+    new_text, n = re.subn(pattern_commented, f"{key}={value}", text, count=1, flags=re.MULTILINE)
+    if n > 0:
+        return new_text
+    return re.sub(r"(\[Globals\])", rf"\1\n{key}={value}", text, count=1)
+
+content = set_key(content, "blue",      "bd93f9")
+content = set_key(content, "grey",      "44475a")
+content = set_key(content, "dark_grey", "21222c")
+
+content = set_key(content, "ls_top_window_bg_color", "282a36")
+content = set_key(content, "ls_bg_color",            "282a36")
+
+content = set_key(content, "ls_width",  "400")
+content = set_key(content, "ls_height", "320")
+
+content = set_key(content, "ls_title", "sup04-pucpr")
+
+logo_filename = "$LOGO_FILENAME"
+if logo_filename:
+    content = set_key(content, "ls_logo_filename",  logo_filename)
+    content = set_key(content, "ls_logo_transform", "scale")
+    content = set_key(content, "ls_logo_width",     "140")
+    content = set_key(content, "ls_logo_height",    "140")
+    content = set_key(content, "ls_logo_x_pos",     "130")
+    content = set_key(content, "ls_logo_y_pos",     "20")
+else:
+    content = set_key(content, "ls_logo_filename",  "")
+
+content = set_key(content, "ls_label_x_pos",  "40")
+content = set_key(content, "ls_label_width",  "110")
+
+content = set_key(content, "ls_input_x_pos",  "160")
+content = set_key(content, "ls_input_width",  "200")
+content = set_key(content, "ls_input_y_pos",  "170")
+
+content = set_key(content, "ls_btn_ok_x_pos",     "100")
+content = set_key(content, "ls_btn_ok_y_pos",     "260")
+content = set_key(content, "ls_btn_ok_width",     "85")
+content = set_key(content, "ls_btn_ok_height",    "30")
+content = set_key(content, "ls_btn_cancel_x_pos", "215")
+content = set_key(content, "ls_btn_cancel_y_pos", "260")
+content = set_key(content, "ls_btn_cancel_width", "85")
+content = set_key(content, "ls_btn_cancel_height","30")
+
+sessions_to_keep = ["globals", "logging", "channels", "routing"]
+lines = content.splitlines()
+out_lines = []
+current_section = "globals"
+
+for line in lines:
+    stripped = line.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        current_section = stripped[1:-1].lower()
+    
+    if current_section in sessions_to_keep:
+        out_lines.append(line)
+
+content = "\n".join(out_lines) + "\n\n"
+content += "[Xorg]\nname=Xorg\nlib=libxup.so\nusername=ask\npassword=ask\nip=127.0.0.1\nport=-1\ncode=20\n"
+
+with open(ini_path, "w") as f:
+    f.write(content)
+
+print("    xrdp.ini atualizado: paleta Dracula + layout moderno + Xorg isolado")
+PYEOF
+
 # Otimizações no xrdp.ini
-echo "  → Otimizando xrdp.ini..."
+echo "  → Otimizando xrdp.ini (performance)..."
 if [ -f /etc/xrdp/xrdp.ini ]; then
     sed -i 's/tcp_nodelay=false/tcp_nodelay=true/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
     sed -i 's/max_bpp=\(32\|24\)/max_bpp=16/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
