@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 # CONFIGURAÇÕES BÁSICAS
 BG_COLOR="#282a36"
@@ -12,9 +12,11 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+trap 'echo -e "${RED}Instalação interrompida!${NC}"; exit 1' INT TERM
+
 echo ""
 echo -e "${BLUE} INSTALAÇÃO DE AMBIENTE DE DESENVOLVIMENTO ${NC}"
-echo -e "${BLUE}  Versão 3.1.0 ${NC}"
+echo -e "${BLUE}  Versão 3.0.0 ${NC}"
 echo ""
 
 # VERIFICAÇÕES INICIAIS
@@ -49,6 +51,19 @@ fi
 # LIMPEZA PRÉVIA
 
 echo -e "${YELLOW}[Preparação] Limpando locks e caches...${NC}"
+
+# Aguarda o apt terminar antes de remover locks
+echo "  → Aguardando processos apt/dpkg liberarem locks..."
+LOCK_WAIT=0
+while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    sleep 2
+    LOCK_WAIT=$((LOCK_WAIT + 2))
+    if [ $LOCK_WAIT -ge 60 ]; then
+        echo -e "${YELLOW}    ⚠ Timeout aguardando locks. Removendo forçado.${NC}"
+        break
+    fi
+done
+
 rm -f /etc/apt/preferences.d/mozilla-firefox 2>/dev/null || true
 rm -f /var/lib/dpkg/lock-frontend 2>/dev/null || true
 rm -f /var/lib/dpkg/lock 2>/dev/null || true
@@ -83,7 +98,15 @@ echo -e "${GREEN}[2/8] Instalando Aplicações...${NC}"
 
 # Chrome
 echo "  Baixando e instalando Google Chrome..."
-wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+if ! wget -q --tries=3 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb; then
+    echo -e "${RED}    ERRO: Falha ao baixar Chrome${NC}"
+    exit 1
+fi
+if [ ! -s /tmp/chrome.deb ] || [ "$(stat -c%s /tmp/chrome.deb)" -lt 50000000 ]; then
+    echo -e "${RED}    ERRO: Arquivo do Chrome corrompido ou incompleto${NC}"
+    rm -f /tmp/chrome.deb
+    exit 1
+fi
 apt install -y /tmp/chrome.deb || apt install -f -y
 rm -f /tmp/chrome.deb
 echo -e "${GREEN}    Chrome instalado${NC}"
@@ -130,9 +153,14 @@ chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
 echo "  → Instalando extensões..."
 
 # Instala extensões como o usuário correto
-sudo -u $USER_NAME codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>/dev/null || true
+# --no-sandbox necessário pois o processo pai é root
+if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>&1; then
+    echo -e "${YELLOW}    ⚠ Extensão dracula-theme não instalada (continuando)${NC}"
+fi
 
-sudo -u $USER_NAME codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension PKief.material-icon-theme --force 2>/dev/null || true
+if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension ms-python.python --force 2>&1; then
+    echo -e "${YELLOW}    ⚠ Extensão ms-python.python não instalada (continuando)${NC}"
+fi
 
 echo "  → Criando configurações..."
 
@@ -140,7 +168,6 @@ echo "  → Criando configurações..."
 cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
 {
   "workbench.colorTheme": "Dracula",
-  "workbench.iconTheme": "material-icon-theme",
   "editor.fontSize": 14,
   "editor.fontFamily": "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
   "window.menuBarVisibility": "classic",
@@ -745,18 +772,19 @@ echo -e "${GREEN}[7/8] Configurando XRDP...${NC}"
 # Configura layout moderno e isola Xorg
 echo "  → Configurando logo PNG e tema Dracula na tela de login..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOGO_DEST="/etc/xrdp/logo-vsde.png"
-LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.png"
+LOGO_DEST="/etc/xrdp/logo-vsde.bmp"
+LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.bmp"
 
 if [ -f "$LOGO_SRC" ]; then
     cp "$LOGO_SRC" "$LOGO_DEST"
     chmod 644 "$LOGO_DEST"
-    echo -e "${GREEN} ✓ Logo customizada copiada${NC}"
-    LOGO_FILENAME="$LOGO_DEST"
+    echo -e "${GREEN}    ✓ Logo customizada copiada${NC}"
 else
-    echo -e "${YELLOW} Logo customizada não encontrada. Ficara sem logo.${NC}"
-    LOGO_FILENAME=""
+    echo -e "${YELLOW}    ⚠ Logo customizada não encontrada em assets/. Se ela já estiver em /etc/xrdp/logo-vsde.bmp, será usada.${NC}"
 fi
+
+# Sempre força a configuração no xrdp.ini
+LOGO_FILENAME="/etc/xrdp/logo-vsde.bmp"
 
 python3 - <<PYEOF
 import re, sys
@@ -780,44 +808,46 @@ def set_key(text, key, value):
         return new_text
     return re.sub(r"(\[Globals\])", rf"\1\n{key}={value}", text, count=1)
 
-content = set_key(content, "blue",      "bd93f9")
-content = set_key(content, "grey",      "44475a")
-content = set_key(content, "dark_grey", "21222c")
+content = set_key(content, "blue",      "21113b")
+content = set_key(content, "grey",      "8661e5")
+content = set_key(content, "dark_grey", "44475a")
 
 content = set_key(content, "ls_top_window_bg_color", "282a36")
 content = set_key(content, "ls_bg_color",            "282a36")
 
-content = set_key(content, "ls_width",  "400")
-content = set_key(content, "ls_height", "320")
+# Limpa qualquer resquício de wallpaper antigo
+content = set_key(content, "ls_background_image", "")
 
-content = set_key(content, "ls_title", "sup04-pucpr")
+content = set_key(content, "ls_width",  "420")
+content = set_key(content, "ls_height", "380")
+
+content = set_key(content, "ls_title", "VSDe - Acesso Seguro")
+content = set_key(content, "ls_label_text_color", "ffffff")
+content = set_key(content, "ls_text_color", "ffffff")
 
 logo_filename = "$LOGO_FILENAME"
-if logo_filename:
-    content = set_key(content, "ls_logo_filename",  logo_filename)
-    content = set_key(content, "ls_logo_transform", "scale")
-    content = set_key(content, "ls_logo_width",     "140")
-    content = set_key(content, "ls_logo_height",    "140")
-    content = set_key(content, "ls_logo_x_pos",     "130")
-    content = set_key(content, "ls_logo_y_pos",     "20")
-else:
-    content = set_key(content, "ls_logo_filename",  "")
+content = set_key(content, "ls_logo_filename",  logo_filename)
+content = set_key(content, "ls_logo_transform", "scale")
+content = set_key(content, "ls_logo_width",     "175")
+content = set_key(content, "ls_logo_height",    "175")
+content = set_key(content, "ls_logo_x_pos",     "115")
+content = set_key(content, "ls_logo_y_pos",     "40")
 
-content = set_key(content, "ls_label_x_pos",  "40")
+content = set_key(content, "ls_label_x_pos",  "-1000")
 content = set_key(content, "ls_label_width",  "110")
 
-content = set_key(content, "ls_input_x_pos",  "160")
+content = set_key(content, "ls_input_x_pos",  "110")
 content = set_key(content, "ls_input_width",  "200")
-content = set_key(content, "ls_input_y_pos",  "170")
+content = set_key(content, "ls_input_y_pos",  "210")
 
-content = set_key(content, "ls_btn_ok_x_pos",     "100")
-content = set_key(content, "ls_btn_ok_y_pos",     "260")
+content = set_key(content, "ls_btn_ok_x_pos",     "167")
+content = set_key(content, "ls_btn_ok_y_pos",     "310")
 content = set_key(content, "ls_btn_ok_width",     "85")
 content = set_key(content, "ls_btn_ok_height",    "30")
-content = set_key(content, "ls_btn_cancel_x_pos", "215")
-content = set_key(content, "ls_btn_cancel_y_pos", "260")
-content = set_key(content, "ls_btn_cancel_width", "85")
-content = set_key(content, "ls_btn_cancel_height","30")
+content = set_key(content, "ls_btn_cancel_x_pos", "-1000")
+content = set_key(content, "ls_btn_cancel_y_pos", "-1000")
+content = set_key(content, "ls_btn_cancel_width", "0")
+content = set_key(content, "ls_btn_cancel_height","0")
 
 sessions_to_keep = ["globals", "logging", "channels", "routing"]
 lines = content.splitlines()
@@ -833,7 +863,7 @@ for line in lines:
         out_lines.append(line)
 
 content = "\n".join(out_lines) + "\n\n"
-content += "[Xorg]\nname=Xorg\nlib=libxup.so\nusername=ask\npassword=ask\nip=127.0.0.1\nport=-1\ncode=20\n"
+content += "[Xorg]\nname=Ambiente VSDe\nlib=libxup.so\nusername=ask\npassword=ask\nip=127.0.0.1\nport=-1\ncode=20\n"
 
 with open(ini_path, "w") as f:
     f.write(content)
@@ -891,8 +921,8 @@ echo -e "${GREEN}    .xsession criado: $(wc -c < "$HOME_DIR/.xsession") bytes${N
 # Cria startwm.sh
 echo "  → Criando startwm.sh..."
 
-if [ -f /etc/xrdp/startwm.sh ]; then
-    cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.backup.$(date +%Y%m%d-%H%M%S)
+if [ -f /etc/xrdp/startwm.sh ] && [ ! -f /etc/xrdp/startwm.sh.orig ]; then
+    cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.orig
 fi
 
 cat > /etc/xrdp/startwm.sh <<'STARTWM_CONTENT'
@@ -979,7 +1009,7 @@ echo "Tint2 iniciado"
 
 # Abre VSCodium (fixado como wallpaper, acima da barra)
 sleep 2
-codium --disable-gpu --no-sandbox --disable-dev-shm-usage --disable-software-rasterizer --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
+codium --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
 echo "VSCodium iniciado"
 
 echo "Autostart finalizado em \$(date)"
@@ -1085,13 +1115,12 @@ FORCE_HIDE=(
 )
 
 for app_name in "${FORCE_HIDE[@]}"; do
-    # Cria override direto mesmo que o .desktop não exista em /usr/share/applications
-    cat > "$HOME_DIR/.local/share/applications/$app_name" <<HIDEEOF
-[Desktop Entry]
-Type=Application
-Name=Hidden
-NoDisplay=true
-HIDEEOF
+    src="/usr/share/applications/$app_name"
+    if [ -f "$src" ]; then
+        hide_desktop "$src"
+    else
+        printf '[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n' > "$HOME_DIR/.local/share/applications/$app_name"
+    fi
 done
 
 # Cria .desktop para apps que podem não ter um (garante que aparecem no rofi)
@@ -1201,7 +1230,6 @@ vm.page-cluster=0
 vm.watermark_boost_factor=0
 kernel.nmi_watchdog=0
 SYSCTLEOF
-sysctl -p 2>/dev/null || true
 echo -e "${GREEN}    Parâmetros de kernel otimizados${NC}"
 
 # Desabilita swap em disco se existir (zram é mais rápido em VM)
@@ -1251,7 +1279,7 @@ mkdir -p /etc/systemd/journald.conf.d
 cat > /etc/systemd/journald.conf.d/size-limit.conf <<'JOURNALEOF'
 [Journal]
 SystemMaxUse=50M
-RuntimeMaxUse=16M
+RuntimeMaxUse=64M
 JOURNALEOF
 systemctl restart systemd-journald 2>/dev/null || true
 echo -e "${GREEN}    Journal limitado (50M disco, 16M runtime)${NC}"
@@ -1264,20 +1292,18 @@ echo "* hard core 0" >> /etc/security/limits.conf
 echo "* soft core 0" >> /etc/security/limits.conf
 if ! grep -q "kernel.core_pattern" /etc/sysctl.conf 2>/dev/null; then
     echo "kernel.core_pattern=/dev/null" >> /etc/sysctl.conf
-    sysctl -w kernel.core_pattern=/dev/null 2>/dev/null || true
 fi
+sysctl -p 2>/dev/null || true
 echo -e "${GREEN}    Core dumps desabilitados${NC}"
 
 # Instala earlyoom (proteção contra OOM - mata processo menos importante antes de congelar)
 echo "  → Instalando earlyoom..."
 apt install -y --no-install-recommends --no-install-suggests earlyoom 2>/dev/null || true
-if [ -f /etc/default/earlyoom ]; then
-    cat > /etc/default/earlyoom <<'EOOMEOF'
+cat > /etc/default/earlyoom <<'EOOMEOF'
 EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --prefer '(chrome|Chrome)' --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
 EOOMEOF
-    systemctl enable earlyoom 2>/dev/null || true
-    systemctl restart earlyoom 2>/dev/null || true
-fi
+systemctl enable earlyoom 2>/dev/null || true
+systemctl restart earlyoom 2>/dev/null || true
 echo -e "${GREEN}    earlyoom configurado${NC}"
 
 # Limpeza de cache apt (libera espaço em disco)
