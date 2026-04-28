@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="scripts/assets/logo-vsde.png" width="160" alt="VSDe logo"/>
+  <img src="scripts/assets/logo-vsde.png" width="260" alt="VSDe logo"/>
 </p>
 
-<h1 align="center">VSDe — VS Code Desktop Environment</h1>
+<h1 align="center">VS Code Desktop Environment</h1>
 
 <p align="center">
   Ambiente de desenvolvimento focado em otimização e performace para desenvolvimento, acessível via RDP.
