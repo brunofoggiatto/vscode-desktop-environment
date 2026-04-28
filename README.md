@@ -1,131 +1,91 @@
-# VS Code Desktop Environment 
+<p align="center">
+  <img src="scripts/assets/logo-vsde.png" width="160" alt="VSDe logo"/>
+</p>
 
-Este projeto configura um ambiente gráfico extremamente leve em uma máquina Ubuntu (22.04) para acesso ao VS Code via RDP, utilizando um gerenciador de janelas (Openbox).
+<h1 align="center">VSDe — VS Code Desktop Environment</h1>
 
-O foco é oferecer um ambiente limpo, rápido e eficiente, pensado especificamente para programação.
+<p align="center">
+  Ambiente de desenvolvimento focado em otimização e performace para desenvolvimento, acessível via RDP.
+</p>
 
-Ideal para uso em:
+<p align="center">
+  <img src="https://img.shields.io/badge/Ubuntu-22.04-E95420?logo=ubuntu&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Openbox-WM-1a1b26"/>
+  <img src="https://img.shields.io/badge/XRDP-3389-0078D4"/>
+  <img src="https://img.shields.io/badge/VSCodium-Dracula-bd93f9"/>
+</p>
 
-* Servidores
-* Máquinas virtuais
-* Laboratórios de desenvolvimento
-* Ambientes DevOps
+## O que o instalador faz
 
----
-
-## O que este script faz
-
-* Atualiza o sistema
-* Instala e configura o XRDP
-* Instala um gerenciador de janelas leve (Openbox)
-* Instala o VS Code
-* Aplica o tema (opcional)
-* Inicia automaticamente o VS Code em tela cheia
-* Remove elementos visuais desnecessários (barras, menus, janelas extras)
-
-Resultado:
-Ao conectar via RDP, será exibido somente o VS Code, em modo de tela cheia, com aparência limpa e sem distrações.
+- Instala e configura XRDP 
+- Instala Pacotes necessários e configura ambiente de desenvolvimento
+- Aplica ZRAM com compressão `lz4` para otimizar RAM em VMs
+- Oculta entradas desnecessárias no menu de aplicativos
+- Desabilita serviços não essenciais (cups, bluetooth, snapd, etc.)
 
 ---
 
 ## Requisitos
 
-* Ubuntu 22.04
-* Acesso root (ou sudo)
-* Conexão com a internet
+- Ubuntu 22.04 (bare metal, VM ou VPS)
+- Acesso `root` / `sudo`
+- Conexão com a internet
 
 ---
 
-## Como usar
-
-1. Clone ou copie o projeto:
+## Instalação
 
 ```bash
-git clone <url-do-repositorio>
-cd vscode-desktop-environment
+git clone https://github.com/brunofoggiatto/vscode-desktop-environment.git
+cd vscode-desktop-environment/scripts
+sudo chmod +x install.sh #
+sudo bash install.sh
 ```
 
-2. Dê permissão de execução ao script:
+Reinicie após a instalação:
 
 ```bash
-chmod +x install.sh
+sudo reboot
 ```
-
-3. Execute o instalador:
-
-```bash
-sudo ./install.sh
-```
-
-4. Aguarde o término do processo de instalação.
 
 ---
 
-## Como conectar via RDP
+## Conexão RDP
 
-Use no Windows a ferramenta "Conexão de Área de Trabalho Remota":
+| Campo | Valor |
+|-------|-------|
+| Host | IP da máquina |
+| Porta | `3389` |
+| Usuário | usuário Linux |
+| Senha | senha Linux |
 
-* IP: IP da máquina Ubuntu
-* Porta: 3389
-* Usuário: seu usuário Linux
-* Senha: sua senha Linux
-
-Exemplo:
-
-```text
-IP: 192.xxx.0.xx
-Porta: 3389
-Usuário: bruno.foggiatto
-Senha: ****
-```
+No Windows: **mstsc.exe** → inserir `<IP>:3389`.
 
 ---
 
 ## Comandos úteis
 
-Ver o IP da máquina:
-
 ```bash
+# IP da máquina
 hostname -I
-```
 
-Verificar status do RDP:
-
-```bash
+# Status do XRDP
 systemctl status xrdp
-```
 
-Reiniciar o serviço RDP:
-
-```bash
+# Reiniciar XRDP
 sudo systemctl restart xrdp
 ```
 
 ---
 
-## Remover Openbox (se necessário)
+## Desinstalar
 
 ```bash
-sudo apt remove --purge openbox obconf -y
-sudo apt autoremove --purge -y
-rm -rf ~/.config/openbox
+sudo bash scripts/uninstall.sh
 ```
 
 ---
 
-## Objetivo do projeto
+## Autor
 
-Criar um ambiente:
-
-* Leve e rápido
-* Totalmente focado em programação
-* Ideal para desenvolvimento e práticas DevOps
-* Com baixo consumo de recursos
-* Livre de distrações visuais
-
-Este ambiente foi pensado para funcionar bem mesmo em máquinas com poucos recursos, mantendo o desempenho e a simplicidade.
-
-# AUTOR
-
-Bruno Henrique Foggiatto
-https://github.com/brunofoggiatto
+**Bruno Foggiatto** — [@brunofoggiatto](https://github.com/brunofoggiatto)

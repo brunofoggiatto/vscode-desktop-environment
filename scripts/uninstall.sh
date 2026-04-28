@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 set -e
 
@@ -127,7 +127,7 @@ echo -e "${GREEN}  Configurações removidas${NC}"
 echo -e "${YELLOW}[5/6] Revertendo otimizações de sistema...${NC}"
 
 # Reverte sysctl (remove parâmetros adicionados pelo install)
-echo "  → Revertendo sysctl..."
+echo "  -> Revertendo sysctl..."
 sed -i '/^vm.swappiness/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.vfs_cache_pressure/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.dirty_ratio/d' /etc/sysctl.conf 2>/dev/null || true
@@ -140,30 +140,30 @@ sysctl -p 2>/dev/null || true
 echo -e "${GREEN}    sysctl revertido${NC}"
 
 # Remove configuração do ZRAM
-echo "  → Removendo configuração ZRAM..."
+echo "  -> Removendo configuração ZRAM..."
 rm -f /etc/default/zramswap 2>/dev/null || true
 echo -e "${GREEN}    ZRAM removido${NC}"
 
 # Remove configuração do earlyoom
-echo "  → Removendo configuração earlyoom..."
+echo "  -> Removendo configuração earlyoom..."
 rm -f /etc/default/earlyoom 2>/dev/null || true
 echo -e "${GREEN}    earlyoom removido${NC}"
 
 # Remove limite do journal
-echo "  → Revertendo journal..."
+echo "  -> Revertendo journal..."
 rm -f /etc/systemd/journald.conf.d/size-limit.conf 2>/dev/null || true
 rmdir /etc/systemd/journald.conf.d 2>/dev/null || true
 systemctl restart systemd-journald 2>/dev/null || true
 echo -e "${GREEN}    Journal revertido${NC}"
 
 # Remove core dumps config
-echo "  → Revertendo core dumps..."
+echo "  -> Revertendo core dumps..."
 sed -i '/\* hard core 0/d' /etc/security/limits.conf 2>/dev/null || true
 sed -i '/\* soft core 0/d' /etc/security/limits.conf 2>/dev/null || true
 echo -e "${GREEN}    Core dumps revertidos${NC}"
 
 # Desmascara serviços que foram mascarados
-echo "  → Desmascarando serviços..."
+echo "  -> Desmascarando serviços..."
 MASKED_SERVICES=(
     "ModemManager"
     "NetworkManager-wait-online"

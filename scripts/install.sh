@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 set -eo pipefail
 
@@ -53,13 +53,13 @@ fi
 echo -e "${YELLOW}[Preparação] Limpando locks e caches...${NC}"
 
 # Aguarda o apt terminar antes de remover locks
-echo "  → Aguardando processos apt/dpkg liberarem locks..."
+echo "  -> Aguardando processos apt/dpkg liberarem locks..."
 LOCK_WAIT=0
 while fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1; do
     sleep 2
     LOCK_WAIT=$((LOCK_WAIT + 2))
     if [ $LOCK_WAIT -ge 60 ]; then
-        echo -e "${YELLOW}    ⚠ Timeout aguardando locks. Removendo forçado.${NC}"
+        echo -e "${YELLOW}    Timeout aguardando locks. Removendo forçado.${NC}"
         break
     fi
 done
@@ -86,10 +86,10 @@ echo "  Instalando Openbox e utilitários..."
 apt install -y --no-install-recommends --no-install-suggests openbox wmctrl tint2 rofi pcmanfm file-roller eog gnome-screenshot gnome-terminal mousepad gnome-calculator evince zenity fonts-liberation yaru-theme-gtk yaru-theme-icon x11-xkb-utils dconf-cli libglib2.0-bin xdg-utils
 
 # Ferramentas de desenvolvimento
-echo "  → Instalando ferramentas..."
+echo "  -> Instalando ferramentas..."
 apt install -y --no-install-recommends --no-install-suggests curl gnupg build-essential git python3-pip
 
-echo -e "${GREEN}  ✓ Base gráfica instalada com sucesso${NC}"
+echo -e "${GREEN}   Base gráfica instalada com sucesso${NC}"
 echo ""
 
 # FASE 2: APPS
@@ -121,7 +121,7 @@ echo -e "${GREEN}[3/8] Instalando VSCodium...${NC}"
 echo -e "${BLUE}============================================${NC}"
 
 if ! command -v codium >/dev/null 2>&1; then
-    echo "  → Adicionando repositório VSCodium..."
+    echo "  -> Adicionando repositório VSCodium..."
     wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg | gpg --dearmor | tee /usr/share/keyrings/vscodium-archive-keyring.gpg > /dev/null
 
     echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' | tee /etc/apt/sources.list.d/vscodium.list
@@ -150,19 +150,19 @@ sleep 1
 mkdir -p "$HOME_DIR/.config/VSCodium/User"
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
 
-echo "  → Instalando extensões..."
+echo "  -> Instalando extensões..."
 
 # Instala extensões como o usuário correto
 # --no-sandbox necessário pois o processo pai é root
 if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>&1; then
-    echo -e "${YELLOW}    ⚠ Extensão dracula-theme não instalada (continuando)${NC}"
+    echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
 fi
 
 if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension ms-python.python --force 2>&1; then
-    echo -e "${YELLOW}    ⚠ Extensão ms-python.python não instalada (continuando)${NC}"
+    echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
 fi
 
-echo "  → Criando configurações..."
+echo "  -> Criando configurações..."
 
 # Configurações do VSCodium
 cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
@@ -194,12 +194,12 @@ EOF
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/VSCodium"
 
-echo -e "${GREEN}  ✓ VSCodium configurado${NC}"
+echo -e "${GREEN}   VSCodium configurado${NC}"
 echo ""
 
 # Configura GTK3 settings para que PCManFM, Mousepad e outros apps GTK
 # usem o tema Yaru-dark + ícones Yaru corretamente no Openbox
-echo "  → Configurando tema GTK3 para aplicações..."
+echo "  -> Configurando tema GTK3 para aplicações..."
 mkdir -p "$HOME_DIR/.config/gtk-3.0"
 cat > "$HOME_DIR/.config/gtk-3.0/settings.ini" <<'GTKEOF'
 [Settings]
@@ -225,7 +225,7 @@ echo -e "${GREEN}    GTK3 configurado com tema dark${NC}"
 
 # Inicializa perfil padrão do gnome-terminal via dconf
 # (sem isso, gnome-terminal pode falhar na primeira execução no Openbox)
-echo "  → Inicializando perfil do GNOME Terminal..."
+echo "  -> Inicializando perfil do GNOME Terminal..."
 PROFILE_ID=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "b1dcc9dd-5262-4d8d-a863-c897e6d979b9")
 sudo -u $USER_NAME dbus-launch dconf write /org/gnome/terminal/legacy/profiles:/default "'$PROFILE_ID'" 2>/dev/null || true
 sudo -u $USER_NAME dbus-launch dconf write /org/gnome/terminal/legacy/profiles:/:$PROFILE_ID/visible-name "'Default'" 2>/dev/null || true
@@ -536,7 +536,7 @@ echo -e "${GREEN}[6/8] Configurando Openbox...${NC}"
 mkdir -p "$HOME_DIR/.config/openbox"
 
 # Cria tema Openbox personalizado (dark flat, estilo Dracula)
-echo "  → Criando tema Dracula-Flat para Openbox..."
+echo "  -> Criando tema Dracula-Flat para Openbox..."
 
 THEME_DIR="$HOME_DIR/.themes/Dracula-Flat/openbox-3"
 mkdir -p "$THEME_DIR"
@@ -720,7 +720,7 @@ chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.themes"
 echo -e "${GREEN}    Tema Dracula-Flat criado${NC}"
 
 # Configuração do Openbox
-echo "  → Criando configuração do Openbox..."
+echo "  -> Criando configuração do Openbox..."
 
 printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">' > "$HOME_DIR/.config/openbox/rc.xml"
 cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF'
@@ -762,7 +762,7 @@ RCEOF
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/openbox"
 
-echo -e "${GREEN}  ✓ Openbox configurado${NC}"
+echo -e "${GREEN}   Openbox configurado${NC}"
 echo ""
 
 # FASE 7: CONFIGURAÇÃO XRDP
@@ -770,7 +770,7 @@ echo ""
 echo -e "${GREEN}[7/8] Configurando XRDP...${NC}"
 
 # Configura layout moderno e isola Xorg
-echo "  → Configurando logo PNG e tema Dracula na tela de login..."
+echo "  -> Configurando logo PNG e tema Dracula na tela de login..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGO_DEST="/etc/xrdp/logo-vsde.bmp"
 LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.bmp"
@@ -778,9 +778,9 @@ LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.bmp"
 if [ -f "$LOGO_SRC" ]; then
     cp "$LOGO_SRC" "$LOGO_DEST"
     chmod 644 "$LOGO_DEST"
-    echo -e "${GREEN}    ✓ Logo customizada copiada${NC}"
+    echo -e "${GREEN}     Logo customizada copiada${NC}"
 else
-    echo -e "${YELLOW}    ⚠ Logo customizada não encontrada em assets/. Se ela já estiver em /etc/xrdp/logo-vsde.bmp, será usada.${NC}"
+    echo -e "${YELLOW}    Logo customizada não encontrada em assets/. Se ela já estiver em /etc/xrdp/logo-vsde.bmp, será usada.${NC}"
 fi
 
 # Sempre força a configuração no xrdp.ini
@@ -872,7 +872,7 @@ print("    xrdp.ini atualizado: paleta Dracula + layout moderno + Xorg isolado")
 PYEOF
 
 # Otimizações no xrdp.ini
-echo "  → Otimizando xrdp.ini (performance)..."
+echo "  -> Otimizando xrdp.ini (performance)..."
 if [ -f /etc/xrdp/xrdp.ini ]; then
     sed -i 's/tcp_nodelay=false/tcp_nodelay=true/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
     sed -i 's/max_bpp=\(32\|24\)/max_bpp=16/g' /etc/xrdp/xrdp.ini 2>/dev/null || true
@@ -919,7 +919,7 @@ chown $USER_NAME:$USER_NAME "$HOME_DIR/.xsession"
 echo -e "${GREEN}    .xsession criado: $(wc -c < "$HOME_DIR/.xsession") bytes${NC}"
 
 # Cria startwm.sh
-echo "  → Criando startwm.sh..."
+echo "  -> Criando startwm.sh..."
 
 if [ -f /etc/xrdp/startwm.sh ] && [ ! -f /etc/xrdp/startwm.sh.orig ]; then
     cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.orig
@@ -970,7 +970,7 @@ chmod +x /etc/xrdp/startwm.sh
 echo -e "${GREEN}    startwm.sh criado: $(wc -c < /etc/xrdp/startwm.sh) bytes${NC}"
 
 # Autostart do Openbox
-echo "  → Criando autostart..."
+echo "  -> Criando autostart..."
 
 cat > "$HOME_DIR/.config/openbox/autostart" <<AUTOSTART_CONTENT
 #!/bin/bash
@@ -1088,7 +1088,7 @@ for allowed in "${ALLOWED_APPS[@]}"; do
         cp "$src" "$dst"
         sed -i '/^OnlyShowIn=/d' "$dst"
         sed -i '/^NotShowIn=/d' "$dst"
-        echo "    ✓ $allowed (removido OnlyShowIn/NotShowIn)"
+        echo "     $allowed (removido OnlyShowIn/NotShowIn)"
     fi
 done
 
@@ -1120,6 +1120,30 @@ for app_name in "${FORCE_HIDE[@]}"; do
         hide_desktop "$src"
     else
         printf '[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n' > "$HOME_DIR/.local/share/applications/$app_name"
+    fi
+done
+
+# Reforço: esconde VSCodium em TODOS os diretórios XDG (garante que não aparece no rofi)
+echo "  -> Reforçando ocultação do VSCodium em todos os diretórios XDG..."
+for xdg_dir in /usr/share/applications /usr/local/share/applications /opt/codium /opt/vscodium; do
+    [ -d "$xdg_dir" ] || continue
+    for codium_file in "$xdg_dir"/codium*.desktop "$xdg_dir"/vscodium*.desktop "$xdg_dir"/VSCodium*.desktop; do
+        [ -f "$codium_file" ] || continue
+        filename=$(basename "$codium_file")
+        cp "$codium_file" "$HOME_DIR/.local/share/applications/$filename"
+        if grep -q "^NoDisplay=" "$HOME_DIR/.local/share/applications/$filename"; then
+            sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$HOME_DIR/.local/share/applications/$filename"
+        else
+            echo "NoDisplay=true" >> "$HOME_DIR/.local/share/applications/$filename"
+        fi
+        echo "     $filename oculto (origem: $xdg_dir)"
+    done
+done
+# Stubs para nomes conhecidos, independente de onde o VSCodium foi instalado
+for stub in codium.desktop codium-url-handler.desktop vscodium.desktop vscodium-url-handler.desktop; do
+    if [ ! -f "$HOME_DIR/.local/share/applications/$stub" ]; then
+        printf '[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n' > "$HOME_DIR/.local/share/applications/$stub"
+        echo "     Stub criado: $stub"
     fi
 done
 
@@ -1191,7 +1215,7 @@ NoDisplay=true
 DESKTOPEOF
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.local/share/applications"
-echo -e "${GREEN}  ✓ Menu limpo - apenas apps selecionados visíveis${NC}"
+echo -e "${GREEN}   Menu limpo - apenas apps selecionados visíveis${NC}"
 echo ""
 
 # FASE 8: FINALIZAÇÃO
@@ -1199,7 +1223,7 @@ echo ""
 echo -e "${GREEN}[8/8] Finalizando Instalação...${NC}"
 
 # Configura ZRAM (swap comprimido em RAM para reduzir latência em VM)
-echo "  → Configurando ZRAM..."
+echo "  -> Configurando ZRAM..."
 apt install -y --no-install-recommends --no-install-suggests zram-tools 2>/dev/null || true
 
 # Configura ZRAM com lz4 (compressão ultra-rápida, ideal para VMs com CPU limitada)
@@ -1211,7 +1235,7 @@ ZRAMEOF
 echo -e "${GREEN}    ZRAM configurado (60% da RAM, compressão lz4)${NC}"
 
 # Tunagem do kernel para otimizar uso de memória
-echo "  → Configurando parâmetros de kernel (sysctl)..."
+echo "  -> Configurando parâmetros de kernel (sysctl)..."
 # Remove entradas antigas para evitar duplicatas
 sed -i '/^vm.swappiness/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.vfs_cache_pressure/d' /etc/sysctl.conf 2>/dev/null || true
@@ -1244,7 +1268,7 @@ systemctl restart zramswap 2>/dev/null || true
 echo -e "${GREEN}    ZRAM ativo${NC}"
 
 # Desabilita serviços desnecessários em VM (economia de RAM)
-echo "  → Desabilitando serviços desnecessários..."
+echo "  -> Desabilitando serviços desnecessários..."
 DISABLE_SERVICES=(
     "ModemManager"
     "NetworkManager-wait-online"
@@ -1268,13 +1292,13 @@ for svc in "${DISABLE_SERVICES[@]}"; do
         systemctl stop "$svc" 2>/dev/null || true
         systemctl disable "$svc" 2>/dev/null || true
         systemctl mask "$svc" 2>/dev/null || true
-        echo "    ✗ $svc desabilitado"
+        echo "    $svc desabilitado"
     fi
 done
 echo -e "${GREEN}    Serviços desnecessários desabilitados${NC}"
 
 # Limita tamanho do journal do systemd (evita consumo crescente de RAM/disco)
-echo "  → Limitando journal do systemd..."
+echo "  -> Limitando journal do systemd..."
 mkdir -p /etc/systemd/journald.conf.d
 cat > /etc/systemd/journald.conf.d/size-limit.conf <<'JOURNALEOF'
 [Journal]
@@ -1285,7 +1309,7 @@ systemctl restart systemd-journald 2>/dev/null || true
 echo -e "${GREEN}    Journal limitado (50M disco, 16M runtime)${NC}"
 
 # Desabilita core dumps (economia de disco e memória)
-echo "  → Desabilitando core dumps..."
+echo "  -> Desabilitando core dumps..."
 sed -i '/\* hard core 0/d' /etc/security/limits.conf 2>/dev/null || true
 sed -i '/\* soft core 0/d' /etc/security/limits.conf 2>/dev/null || true
 echo "* hard core 0" >> /etc/security/limits.conf
@@ -1297,7 +1321,7 @@ sysctl -p 2>/dev/null || true
 echo -e "${GREEN}    Core dumps desabilitados${NC}"
 
 # Instala earlyoom (proteção contra OOM - mata processo menos importante antes de congelar)
-echo "  → Instalando earlyoom..."
+echo "  -> Instalando earlyoom..."
 apt install -y --no-install-recommends --no-install-suggests earlyoom 2>/dev/null || true
 cat > /etc/default/earlyoom <<'EOOMEOF'
 EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --prefer '(chrome|Chrome)' --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
@@ -1307,7 +1331,7 @@ systemctl restart earlyoom 2>/dev/null || true
 echo -e "${GREEN}    earlyoom configurado${NC}"
 
 # Limpeza de cache apt (libera espaço em disco)
-echo "  → Limpando cache do apt..."
+echo "  -> Limpando cache do apt..."
 apt autoremove -y 2>/dev/null || true
 apt clean 2>/dev/null || true
 rm -rf /var/lib/apt/lists/* 2>/dev/null || true
@@ -1334,7 +1358,7 @@ echo "Habilitando serviços..."
 systemctl enable xrdp
 systemctl enable xrdp-sesman
 
-echo "  → Reiniciando serviços XRDP..."
+echo "  -> Reiniciando serviços XRDP..."
 systemctl restart xrdp
 systemctl restart xrdp-sesman
 
