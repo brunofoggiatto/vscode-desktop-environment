@@ -1,6 +1,6 @@
 ﻿#!/bin/bash
 
-set -e
+set -eo pipefail
 
 # Cores
 RED='\033[0;31m'
@@ -127,10 +127,29 @@ rm -f "$HOME_DIR/.xsession"
 # XRDP configs
 rm -rf /etc/xrdp
 
-# Logs de debug
-rm -f /tmp/xsession-debug.log 2>/dev/null || true
-rm -f /tmp/startwm-debug.log 2>/dev/null || true
-rm -f /tmp/openbox-autostart.log 2>/dev/null || true
+# Logs de debug (padrão por usuário e padrão legado)
+rm -f /tmp/xsession-debug*.log 2>/dev/null || true
+rm -f /tmp/startwm-debug*.log 2>/dev/null || true
+rm -f /tmp/openbox-autostart*.log 2>/dev/null || true
+
+# /etc/skel: remove configs copiados pelo install
+echo "  -> Limpando /etc/skel..."
+rm -f  /etc/skel/.xsession
+rm -rf /etc/skel/.config/openbox
+rm -rf /etc/skel/.config/tint2
+rm -rf /etc/skel/.config/rofi
+rm -rf /etc/skel/.config/gtk-3.0
+rm -f  /etc/skel/.local/bin/show-applications
+rm -f  /etc/skel/.local/share/icons/show-apps.svg
+rm -f  /etc/skel/.local/share/applications/show-applications.desktop
+rm -rf /etc/skel/.themes/Dracula-Flat
+echo -e "${GREEN}    /etc/skel limpo${NC}"
+
+# PAM: remove pam_mkhomedir adicionado pelo install
+echo "  -> Revertendo pam_mkhomedir..."
+sed -i '/pam_mkhomedir/d' /etc/pam.d/common-session  2>/dev/null || true
+sed -i '/pam_mkhomedir/d' /etc/pam.d/xrdp-sesman     2>/dev/null || true
+echo -e "${GREEN}    pam_mkhomedir removido${NC}"
 
 echo -e "${GREEN}  Configurações removidas${NC}"
 
@@ -145,10 +164,20 @@ sed -i '/^vm.dirty_ratio/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.dirty_background_ratio/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.page-cluster/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.watermark_boost_factor/d' /etc/sysctl.conf 2>/dev/null || true
-sed -i '/^kernel.nmi_watchdog/d' /etc/sysctl.conf 2>/dev/null || true
-sed -i '/^kernel.core_pattern/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^kernel.nmi_watchdog/d'    /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^kernel.numa_balancing/d'  /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^kernel.core_pattern/d'    /etc/sysctl.conf 2>/dev/null || true
 sysctl -p 2>/dev/null || true
 echo -e "${GREEN}    sysctl revertido${NC}"
+
+# Reverte parâmetros de GRUB adicionados pelo install
+echo "  -> Revertendo GRUB..."
+if [ -f /etc/default/grub ]; then
+    sed -i 's/ transparent_hugepage=never//g' /etc/default/grub 2>/dev/null || true
+    sed -i 's/ zswap\.enabled=0//g'           /etc/default/grub 2>/dev/null || true
+    update-grub 2>/dev/null || true
+    echo -e "${GREEN}    GRUB revertido${NC}"
+fi
 
 # Remove configuração do ZRAM
 echo "  -> Removendo configuração ZRAM..."

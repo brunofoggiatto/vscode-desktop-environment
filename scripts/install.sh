@@ -1010,8 +1010,8 @@ echo "  Criando .xsession "
 cat > "$HOME_DIR/.xsession" <<'XSESSION_CONTENT'
 #!/bin/bash
 
-# Log de debug
-exec > /tmp/xsession-debug.log 2>&1
+# Log de debug (por usuário para não colidir em logins simultâneos)
+exec > /tmp/xsession-debug-${USER:-unknown}.log 2>&1
 echo "========================================="
 echo "Iniciando .xsession em $(date)"
 echo "USER: $USER"
@@ -1053,8 +1053,8 @@ fi
 cat > /etc/xrdp/startwm.sh <<'STARTWM_CONTENT'
 #!/bin/sh
 
-# Log de debug
-exec > /tmp/startwm-debug.log 2>&1
+# Log de debug (por usuário para não colidir em logins simultâneos)
+exec > /tmp/startwm-debug-${USER:-unknown}.log 2>&1
 echo "Iniciando startwm.sh em $(date)"
 echo "USER: $USER"
 echo "HOME: $HOME"
@@ -1074,11 +1074,19 @@ export DESKTOP_SESSION=openbox
 
 echo "Variáveis XDG configuradas"
 
-# Limpa variáveis problemáticas
+# Limpa D-Bus legado (XRDP cria o seu próprio)
 unset DBUS_SESSION_BUS_ADDRESS
-unset XDG_RUNTIME_DIR
 
-echo "Variáveis limpas"
+# Garante XDG_RUNTIME_DIR para usuários AD/SSSD
+# Não fazer unset: systemd e D-Bus dependem deste diretório para criar sockets
+USER_UID=$(id -u)
+export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
+if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+fi
+
+echo "Variáveis configuradas (XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
 
 # Verifica .xsession do usuário
 if [ -f "$HOME/.xsession" ]; then
@@ -1163,6 +1171,106 @@ fi
 
 chmod +x "$HOME_DIR/.config/openbox/autostart"
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
+
+# POPULA /etc/skel PARA USUÁRIOS AD/SSSD
+# Todos os usuários AD que logarem pela primeira vez receberão esses configs
+# (pam_mkhomedir copia o skel para o home novo automaticamente)
+
+echo "  -> Populando /etc/skel para usuários AD/SSSD..."
+
+mkdir -p /etc/skel/.config/openbox
+mkdir -p /etc/skel/.config/tint2
+mkdir -p /etc/skel/.config/rofi
+mkdir -p /etc/skel/.config/gtk-3.0
+mkdir -p /etc/skel/.local/bin
+mkdir -p /etc/skel/.local/share/applications
+mkdir -p /etc/skel/.local/share/icons
+mkdir -p /etc/skel/.themes/Dracula-Flat/openbox-3
+
+# .xsession
+cp "$HOME_DIR/.xsession" /etc/skel/.xsession
+chmod +x /etc/skel/.xsession
+
+# Openbox rc.xml (não tem paths hardcoded)
+cp "$HOME_DIR/.config/openbox/rc.xml" /etc/skel/.config/openbox/rc.xml
+
+# Autostart para o skel: idêntico ao do usuário mas com log por usuário
+# e com expansão do __HOME__ no tint2rc na primeira execução
+cat > /etc/skel/.config/openbox/autostart <<SKEL_AUTOSTART_HEADER
+#!/bin/bash
+exec >> /tmp/openbox-autostart-\${USER:-unknown}.log 2>&1
+echo "Autostart iniciado em \$(date) USER=\$USER HOME=\$HOME"
+export PATH="\$HOME/.local/bin:\$PATH"
+export GTK_THEME=Yaru-dark
+[ -f /usr/share/themes/Yaru-dark/gtk-2.0/gtkrc ] && export GTK2_RC_FILES=/usr/share/themes/Yaru-dark/gtk-2.0/gtkrc
+# Expande __HOME__ no tint2rc pelo home real do usuário (necessário para usuários AD)
+if grep -q '__HOME__' "\$HOME/.config/tint2/tint2rc" 2>/dev/null; then
+    sed -i "s|__HOME__|\$HOME|g" "\$HOME/.config/tint2/tint2rc"
+fi
+setxkbmap -layout br -variant abnt2 &
+xset s off &
+xset -dpms &
+xset s noblank &
+xsetroot -solid "$BG_COLOR" &
+sleep 1
+tint2 &
+echo "Tint2 iniciado"
+SKEL_AUTOSTART_HEADER
+
+if [ "$EDITOR" = "vscode" ]; then
+    cat >> /etc/skel/.config/openbox/autostart <<'SKEL_EDITOR'
+sleep 2
+code --disable-gpu --disable-dev-shm-usage --js-flags="--max-old-space-size=2048" &
+echo "VS Code iniciado em $(date)"
+SKEL_EDITOR
+elif [ "$EDITOR" = "vscodium" ]; then
+    cat >> /etc/skel/.config/openbox/autostart <<'SKEL_EDITOR'
+sleep 2
+codium --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
+echo "VSCodium iniciado em $(date)"
+SKEL_EDITOR
+elif [ "$EDITOR" = "neovim" ]; then
+    cat >> /etc/skel/.config/openbox/autostart <<'SKEL_EDITOR'
+sleep 2
+gnome-terminal --title="nvim-desktop" -- bash -c "while true; do nvim; sleep 0.5; done" &
+echo "Neovim iniciado em $(date)"
+SKEL_EDITOR
+fi
+chmod +x /etc/skel/.config/openbox/autostart
+
+# tint2rc: mantém __HOME__ como placeholder — o autostart expande no primeiro login
+cp "$HOME_DIR/.config/tint2/tint2rc" /etc/skel/.config/tint2/tint2rc
+sed -i "s|$HOME_DIR|__HOME__|g" /etc/skel/.config/tint2/tint2rc
+
+cp "$HOME_DIR/.config/rofi/dashboard.rasi"   /etc/skel/.config/rofi/dashboard.rasi
+cp "$HOME_DIR/.config/gtk-3.0/settings.ini"  /etc/skel/.config/gtk-3.0/settings.ini
+cp -r "$HOME_DIR/.themes/Dracula-Flat/openbox-3/." /etc/skel/.themes/Dracula-Flat/openbox-3/
+cp "$HOME_DIR/.local/bin/show-applications"  /etc/skel/.local/bin/show-applications
+chmod +x /etc/skel/.local/bin/show-applications
+cp "$HOME_DIR/.local/share/icons/show-apps.svg" /etc/skel/.local/share/icons/show-apps.svg
+cp "$HOME_DIR/.local/share/applications/show-applications.desktop" \
+   /etc/skel/.local/share/applications/show-applications.desktop
+
+echo -e "${GREEN}    /etc/skel populado com configs do ambiente${NC}"
+
+# CONFIGURA PAM MKHOMEDIR
+# Cria automaticamente o /home/<usuario> ao primeiro login de usuários AD
+echo "  -> Configurando pam_mkhomedir para usuários AD..."
+
+PAM_COMMON="/etc/pam.d/common-session"
+if [ -f "$PAM_COMMON" ] && ! grep -q "pam_mkhomedir" "$PAM_COMMON"; then
+    echo "session required pam_mkhomedir.so skel=/etc/skel umask=0022" >> "$PAM_COMMON"
+    echo -e "${GREEN}    pam_mkhomedir adicionado ao common-session${NC}"
+else
+    echo -e "${YELLOW}    pam_mkhomedir já presente em common-session${NC}"
+fi
+
+# xrdp-sesman tem seu próprio contexto PAM — adiciona lá também
+PAM_XRDP="/etc/pam.d/xrdp-sesman"
+if [ -f "$PAM_XRDP" ] && ! grep -q "pam_mkhomedir" "$PAM_XRDP"; then
+    echo "session required pam_mkhomedir.so skel=/etc/skel umask=0022" >> "$PAM_XRDP"
+    echo -e "${GREEN}    pam_mkhomedir adicionado ao xrdp-sesman${NC}"
+fi
 
 echo -e "${GREEN}  Configuração XRDP finalizada${NC}"
 echo ""
@@ -1628,6 +1736,20 @@ if dpkg -l | grep -q xorgxrdp; then
     echo -e "${GREEN}xorgxrdp: INSTALADO${NC}"
 else
     echo -e "${RED}xorgxrdp: NÃO INSTALADO!${NC}"
+fi
+
+# Verifica pam_mkhomedir (necessário para usuários AD/SSSD)
+if grep -q "pam_mkhomedir" /etc/pam.d/common-session 2>/dev/null; then
+    echo -e "${GREEN}pam_mkhomedir: CONFIGURADO (common-session)${NC}"
+else
+    echo -e "${RED}pam_mkhomedir: NÃO CONFIGURADO - usuários AD podem não ter home criado!${NC}"
+fi
+
+# Verifica /etc/skel
+if [ -f /etc/skel/.xsession ] && [ -f /etc/skel/.config/openbox/autostart ]; then
+    echo -e "${GREEN}/etc/skel: POPULADO (usuários AD receberão configs)${NC}"
+else
+    echo -e "${RED}/etc/skel: INCOMPLETO - novos usuários AD não terão configs!${NC}"
 fi
 
 # Verifica serviços
