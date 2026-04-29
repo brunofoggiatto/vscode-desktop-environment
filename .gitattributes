@@ -1,0 +1,15 @@
+# Força LF para shell scripts — evita CRLF que quebra o shebang no Linux
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# Arquivos de texto comuns
+*.md        text eol=lf
+*.txt       text eol=lf
+*.json      text eol=lf
+*.ini       text eol=lf
+*.conf      text eol=lf
+
+# Binários — sem conversão
+*.png       binary
+*.bmp       binary
+*.svg       binary
