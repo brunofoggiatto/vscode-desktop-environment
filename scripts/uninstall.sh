@@ -54,6 +54,8 @@ systemctl disable earlyoom 2>/dev/null || true
 systemctl stop zramswap 2>/dev/null || true
 systemctl disable zramswap 2>/dev/null || true
 killall codium 2>/dev/null || true
+killall code 2>/dev/null || true
+killall nvim 2>/dev/null || true
 killall tint2 2>/dev/null || true
 killall openbox 2>/dev/null || true
 killall rofi 2>/dev/null || true
@@ -62,16 +64,21 @@ echo -e "${GREEN}  Serviços parados${NC}"
 # FASE 2: Remove pacotes
 echo -e "${YELLOW}[2/6] Removendo pacotes...${NC}"
 
-# Pacotes instalados pelo install.sh
+# Pacotes base
 apt purge -y \
     xrdp xorgxrdp xserver-xorg-core xserver-xorg-input-all x11-xserver-utils dbus-x11 \
     openbox wmctrl tint2 rofi \
     pcmanfm file-roller eog gnome-screenshot gnome-terminal mousepad gnome-calculator evince \
     zenity fonts-liberation yaru-theme-gtk yaru-theme-icon x11-xkb-utils dconf-cli libglib2.0-bin \
-    codium google-chrome-stable \
+    google-chrome-stable \
     curl gnupg build-essential git python3-pip \
-    zram-tools earlyoom \
+    zram-tools earlyoom xdg-desktop-portal-gtk \
     2>/dev/null || true
+
+# Editor (remove todos os que puderem estar instalados)
+apt purge -y codium 2>/dev/null || true
+apt purge -y code   2>/dev/null || true
+apt purge -y neovim 2>/dev/null || true
 
 echo -e "${GREEN}  Pacotes removidos${NC}"
 
@@ -79,6 +86,8 @@ echo -e "${GREEN}  Pacotes removidos${NC}"
 echo -e "${YELLOW}[3/6] Removendo repositórios...${NC}"
 rm -f /etc/apt/sources.list.d/vscodium.list
 rm -f /usr/share/keyrings/vscodium-archive-keyring.gpg
+rm -f /etc/apt/sources.list.d/vscode.list
+rm -f /usr/share/keyrings/microsoft.gpg
 apt update -qq 2>/dev/null || true
 echo -e "${GREEN}  Repositórios removidos${NC}"
 
@@ -94,8 +103,10 @@ rm -rf "$HOME_DIR/.config/tint2"
 # Rofi (dashboard)
 rm -rf "$HOME_DIR/.config/rofi"
 
-# VSCodium
+# Editores
 rm -rf "$HOME_DIR/.config/VSCodium"
+rm -rf "$HOME_DIR/.config/Code"
+rm -rf "$HOME_DIR/.config/nvim"
 
 # GTK3
 rm -rf "$HOME_DIR/.config/gtk-3.0"

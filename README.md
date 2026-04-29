@@ -5,11 +5,11 @@
 <h1 align="center">VS Code Desktop Environment</h1>
 
 <p align="center">
-  Ambiente de desenvolvimento focado em otimização e performace para desenvolvimento, acessível via RDP.
+  Ambiente de desenvolvimento focado em otimização e performace.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Ubuntu-22.04-E95420?logo=ubuntu&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-E95420?logo=ubuntu&logoColor=white"/>
   <img src="https://img.shields.io/badge/Openbox-WM-1a1b26"/>
   <img src="https://img.shields.io/badge/XRDP-3389-0078D4"/>
   <img src="https://img.shields.io/badge/VSCodium-Dracula-bd93f9"/>
@@ -27,7 +27,7 @@
 
 ## Requisitos
 
-- Ubuntu 22.04 (bare metal, VM ou VPS)
+- Ubuntu 22.04 ou 24.04 (bare metal, VM ou VPS)
 - Acesso `root` / `sudo`
 - Conexão com a internet
 

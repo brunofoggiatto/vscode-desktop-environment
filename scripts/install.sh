@@ -38,15 +38,45 @@ fi
 
 HOME_DIR=$(eval echo ~$USER_NAME)
 
+# Detecta versão do Ubuntu
+UBUNTU_VERSION=$(grep -oP '(?<=^VERSION_ID=")\d+\.\d+' /etc/os-release 2>/dev/null || echo "unknown")
+
 echo -e "${GREEN}Usuário identificado: ${NC}$USER_NAME"
 echo -e "${GREEN}Diretório home: ${NC}$HOME_DIR"
+echo -e "${GREEN}Ubuntu: ${NC}$UBUNTU_VERSION"
 echo ""
 
-# Verifica distribuição
+# Verifica distribuição e versão suportada
 if ! command -v apt &> /dev/null; then
-    echo -e "${RED}Este script é para sistemas baseados em Debian/Ubuntu${NC}"
+    echo -e "${RED}Erro: este script requer um sistema baseado em Debian/Ubuntu${NC}"
     exit 1
 fi
+
+if [[ "$UBUNTU_VERSION" != "22.04" && "$UBUNTU_VERSION" != "24.04" ]]; then
+    echo -e "${RED}Erro: Ubuntu $UBUNTU_VERSION nao suportado. Use 22.04 ou 24.04.${NC}"
+    exit 1
+fi
+
+# SELEÇÃO DO EDITOR
+
+echo ""
+echo -e "${BLUE}Selecione o editor principal:${NC}"
+echo ""
+echo "  [1] VS Code    (padrao, recomendado)"
+echo "  [2] VSCodium   (mais leve, sem telemetria da Microsoft)"
+echo "  [3] Neovim     (terminal, minimalista)"
+echo ""
+read -p "  Opcao [1]: " EDITOR_CHOICE
+EDITOR_CHOICE=${EDITOR_CHOICE:-1}
+
+case $EDITOR_CHOICE in
+    2) EDITOR="vscodium" ; EDITOR_LABEL="VSCodium" ;;
+    3) EDITOR="neovim"   ; EDITOR_LABEL="Neovim"   ;;
+    *) EDITOR="vscode"   ; EDITOR_LABEL="VS Code"  ;;
+esac
+
+echo -e "${GREEN}Editor selecionado: ${NC}$EDITOR_LABEL"
+echo ""
 
 # LIMPEZA PRÉVIA
 
@@ -85,6 +115,12 @@ apt install -y --no-install-recommends --no-install-suggests xrdp xorgxrdp xserv
 echo "  Instalando Openbox e utilitários..."
 apt install -y --no-install-recommends --no-install-suggests openbox wmctrl tint2 rofi pcmanfm file-roller eog gnome-screenshot gnome-terminal mousepad gnome-calculator evince zenity fonts-liberation yaru-theme-gtk yaru-theme-icon x11-xkb-utils dconf-cli libglib2.0-bin xdg-utils
 
+# Ubuntu 24.04: portal GTK necessário para diálogos de arquivo no Openbox
+if [ "$UBUNTU_VERSION" = "24.04" ]; then
+    echo "  -> Instalando xdg-desktop-portal-gtk (Ubuntu 24.04)..."
+    apt install -y --no-install-recommends --no-install-suggests xdg-desktop-portal-gtk 2>/dev/null || true
+fi
+
 # Ferramentas de desenvolvimento
 echo "  -> Instalando ferramentas..."
 apt install -y --no-install-recommends --no-install-suggests curl gnupg build-essential git python3-pip
@@ -114,58 +150,104 @@ echo -e "${GREEN}    Chrome instalado${NC}"
 echo -e "${GREEN}  Aplicações instaladas${NC}"
 echo ""
 
-# FASE 3: VSCODIUM
+# FASE 3: EDITOR
 
 echo -e "${BLUE}============================================${NC}"
-echo -e "${GREEN}[3/8] Instalando VSCodium...${NC}"
+echo -e "${GREEN}[3/8] Instalando $EDITOR_LABEL...${NC}"
 echo -e "${BLUE}============================================${NC}"
 
-if ! command -v codium >/dev/null 2>&1; then
-    echo "  -> Adicionando repositório VSCodium..."
-    wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg | gpg --dearmor | tee /usr/share/keyrings/vscodium-archive-keyring.gpg > /dev/null
+if [ "$EDITOR" = "vscode" ]; then
+    if ! command -v code >/dev/null 2>&1; then
+        echo "  -> Adicionando repositório VS Code..."
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" | tee /etc/apt/sources.list.d/vscode.list
+        apt update -qq
+        echo "  Instalando VS Code..."
+        apt install -y --no-install-recommends --no-install-suggests code
+        echo -e "${GREEN}    VS Code instalado${NC}"
+    else
+        echo -e "${GREEN}    VS Code ja esta instalado${NC}"
+    fi
 
-    echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' | tee /etc/apt/sources.list.d/vscodium.list
+elif [ "$EDITOR" = "vscodium" ]; then
+    if ! command -v codium >/dev/null 2>&1; then
+        echo "  -> Adicionando repositório VSCodium..."
+        wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg | gpg --dearmor | tee /usr/share/keyrings/vscodium-archive-keyring.gpg > /dev/null
+        echo 'deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://download.vscodium.com/debs vscodium main' | tee /etc/apt/sources.list.d/vscodium.list
+        apt update -qq
+        echo "  Instalando VSCodium..."
+        apt install -y --no-install-recommends --no-install-suggests codium
+        echo -e "${GREEN}    VSCodium instalado${NC}"
+    else
+        echo -e "${GREEN}    VSCodium ja esta instalado${NC}"
+    fi
 
-    apt update -qq
-
-    echo "  Instalando VSCodium..."
-    apt install -y --no-install-recommends --no-install-suggests codium
-
-    echo -e "${GREEN}    VSCodium instalado${NC}"
-else
-    echo -e "${GREEN}    VSCodium já está instalado${NC}"
+elif [ "$EDITOR" = "neovim" ]; then
+    echo "  -> Instalando Neovim..."
+    apt install -y --no-install-recommends --no-install-suggests neovim
+    echo -e "${GREEN}    Neovim instalado${NC}"
 fi
 
 echo ""
 
-# FASE 4: CONFIGURAÇÃO VSCODIUM
+# FASE 4: CONFIGURAÇÃO DO EDITOR
 
-echo -e "${GREEN}[4/8] Configurando VSCodium...${NC}"
+echo -e "${GREEN}[4/8] Configurando $EDITOR_LABEL...${NC}"
 
-# Para processos do codium do usuário
-killall codium 2>/dev/null || true
-sleep 1
+if [ "$EDITOR" = "vscode" ]; then
+    killall code 2>/dev/null || true
+    sleep 1
+    mkdir -p "$HOME_DIR/.config/Code/User"
+    chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
+    echo "  -> Instalando extensões..."
+    if ! sudo -u "$USER_NAME" code --no-sandbox --user-data-dir "$HOME_DIR/.config/Code" --install-extension dracula-theme.theme-dracula --force 2>&1; then
+        echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
+    fi
+    if ! sudo -u "$USER_NAME" code --no-sandbox --user-data-dir "$HOME_DIR/.config/Code" --install-extension ms-python.python --force 2>&1; then
+        echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
+    fi
+    echo "  -> Criando configurações..."
+    cat > "$HOME_DIR/.config/Code/User/settings.json" <<'EOF'
+{
+  "workbench.colorTheme": "Dracula",
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+  "window.menuBarVisibility": "classic",
+  "window.titleBarStyle": "native",
+  "editor.minimap.enabled": false,
+  "workbench.startupEditor": "none",
+  "window.commandCenter": false,
+  "security.workspace.trust.enabled": false,
+  "git.openRepositoryInParentFolders": "always",
+  "editor.smoothScrolling": false,
+  "workbench.list.smoothScrolling": false,
+  "terminal.integrated.smoothScrolling": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "extensions.autoCheckUpdates": false,
+  "editor.renderWhitespace": "none",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules/**": true
+  }
+}
+EOF
+    chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/Code"
 
-# Cria diretórios de configuração
-mkdir -p "$HOME_DIR/.config/VSCodium/User"
-chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
-
-echo "  -> Instalando extensões..."
-
-# Instala extensões como o usuário correto
-# --no-sandbox necessário pois o processo pai é root
-if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>&1; then
-    echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
-fi
-
-if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension ms-python.python --force 2>&1; then
-    echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
-fi
-
-echo "  -> Criando configurações..."
-
-# Configurações do VSCodium
-cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
+elif [ "$EDITOR" = "vscodium" ]; then
+    killall codium 2>/dev/null || true
+    sleep 1
+    mkdir -p "$HOME_DIR/.config/VSCodium/User"
+    chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
+    echo "  -> Instalando extensões..."
+    if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>&1; then
+        echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
+    fi
+    if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension ms-python.python --force 2>&1; then
+        echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
+    fi
+    echo "  -> Criando configurações..."
+    cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
 {
   "workbench.colorTheme": "Dracula",
   "editor.fontSize": 14,
@@ -191,10 +273,26 @@ cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
   }
 }
 EOF
+    chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/VSCodium"
 
-chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/VSCodium"
+elif [ "$EDITOR" = "neovim" ]; then
+    mkdir -p "$HOME_DIR/.config/nvim"
+    cat > "$HOME_DIR/.config/nvim/init.vim" <<'NVIMEOF'
+set number
+set relativenumber
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set smartindent
+set termguicolors
+set scrolloff=8
+set signcolumn=yes
+syntax enable
+NVIMEOF
+    chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/nvim"
+fi
 
-echo -e "${GREEN}   VSCodium configurado${NC}"
+echo -e "${GREEN}   $EDITOR_LABEL configurado${NC}"
 echo ""
 
 # Configura GTK3 settings para que PCManFM, Mousepad e outros apps GTK
@@ -746,7 +844,16 @@ cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF'
     <keybind key="Super_L"><action name="Execute"><command>show-applications</command></action></keybind>
   </keyboard>
   <applications>
-    <application class="VSCodium"><decor>no</decor><maximized>yes</maximized><layer>below</layer><skip_taskbar>yes</skip_taskbar><skip_pager>yes</skip_pager></application>
+RCEOF
+
+# Regra do editor selecionado (sem borda, maximizado, abaixo das janelas)
+if [ "$EDITOR" = "vscode" ]; then
+    echo '    <application class="Code"><decor>no</decor><maximized>yes</maximized><layer>below</layer><skip_taskbar>yes</skip_taskbar><skip_pager>yes</skip_pager></application>' >> "$HOME_DIR/.config/openbox/rc.xml"
+elif [ "$EDITOR" = "vscodium" ]; then
+    echo '    <application class="VSCodium"><decor>no</decor><maximized>yes</maximized><layer>below</layer><skip_taskbar>yes</skip_taskbar><skip_pager>yes</skip_pager></application>' >> "$HOME_DIR/.config/openbox/rc.xml"
+fi
+
+cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF2'
     <application class="Mousepad"><decor>yes</decor><maximized>no</maximized></application>
     <application class="Google-chrome"><decor>yes</decor><maximized>no</maximized></application>
     <application class="Gnome-terminal"><decor>yes</decor><maximized>no</maximized></application>
@@ -756,9 +863,17 @@ cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF'
     <application class="Gnome-calculator"><decor>yes</decor><maximized>no</maximized></application>
     <application class="Evince"><decor>yes</decor><maximized>no</maximized></application>
     <application class="tint2"><decor>no</decor></application>
+RCEOF2
+
+# Para Neovim: regra por título após a regra da classe gnome-terminal (sobrepõe decorações)
+if [ "$EDITOR" = "neovim" ]; then
+    echo '    <application title="nvim-desktop"><decor>no</decor><maximized>yes</maximized><layer>below</layer><skip_taskbar>yes</skip_taskbar><skip_pager>yes</skip_pager></application>' >> "$HOME_DIR/.config/openbox/rc.xml"
+fi
+
+cat >> "$HOME_DIR/.config/openbox/rc.xml" <<'RCEOF3'
   </applications>
 </openbox_config>
-RCEOF
+RCEOF3
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/openbox"
 
@@ -1007,13 +1122,34 @@ sleep 1
 tint2 &
 echo "Tint2 iniciado"
 
-# Abre VSCodium (fixado como wallpaper, acima da barra)
+AUTOSTART_CONTENT
+
+# Lança o editor fixado como wallpaper
+if [ "$EDITOR" = "vscode" ]; then
+    cat >> "$HOME_DIR/.config/openbox/autostart" <<'EDITOREOF'
+sleep 2
+code --disable-gpu --disable-dev-shm-usage --js-flags="--max-old-space-size=2048" &
+echo "VS Code iniciado"
+
+echo "Autostart finalizado em $(date)"
+EDITOREOF
+elif [ "$EDITOR" = "vscodium" ]; then
+    cat >> "$HOME_DIR/.config/openbox/autostart" <<'EDITOREOF'
 sleep 2
 codium --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
 echo "VSCodium iniciado"
 
-echo "Autostart finalizado em \$(date)"
-AUTOSTART_CONTENT
+echo "Autostart finalizado em $(date)"
+EDITOREOF
+elif [ "$EDITOR" = "neovim" ]; then
+    cat >> "$HOME_DIR/.config/openbox/autostart" <<'EDITOREOF'
+sleep 2
+gnome-terminal --title="nvim-desktop" -- bash -c "while true; do nvim; sleep 0.5; done" &
+echo "Neovim iniciado"
+
+echo "Autostart finalizado em $(date)"
+EDITOREOF
+fi
 
 chmod +x "$HOME_DIR/.config/openbox/autostart"
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
@@ -1097,6 +1233,8 @@ done
 FORCE_HIDE=(
     "codium.desktop"
     "codium-url-handler.desktop"
+    "code.desktop"
+    "code-url-handler.desktop"
     "thunar.desktop"
     "org.xfce.thunar.desktop"
     "org.xfce.thunar-settings.desktop"
@@ -1215,6 +1353,7 @@ NoDisplay=true
 DESKTOPEOF
 
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.local/share/applications"
+update-desktop-database "$HOME_DIR/.local/share/applications" 2>/dev/null || true
 echo -e "${GREEN}   Menu limpo - apenas apps selecionados visíveis${NC}"
 echo ""
 
@@ -1244,6 +1383,8 @@ sed -i '/^vm.dirty_background_ratio/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.page-cluster/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.watermark_boost_factor/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^kernel.nmi_watchdog/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^kernel.numa_balancing/d' /etc/sysctl.conf 2>/dev/null || true
+sed -i '/^vm.min_free_kbytes/d' /etc/sysctl.conf 2>/dev/null || true
 
 cat >> /etc/sysctl.conf <<'SYSCTLEOF'
 vm.swappiness=180
@@ -1252,7 +1393,9 @@ vm.dirty_ratio=10
 vm.dirty_background_ratio=5
 vm.page-cluster=0
 vm.watermark_boost_factor=0
+vm.min_free_kbytes=65536
 kernel.nmi_watchdog=0
+kernel.numa_balancing=0
 SYSCTLEOF
 echo -e "${GREEN}    Parâmetros de kernel otimizados${NC}"
 
@@ -1266,6 +1409,23 @@ systemctl enable zramswap 2>/dev/null || true
 systemctl restart zramswap 2>/dev/null || true
 
 echo -e "${GREEN}    ZRAM ativo${NC}"
+
+# Desabilita THP (Transparent Huge Pages) - causa bloat de memória em VMs
+echo "  -> Desabilitando Transparent Huge Pages (THP)..."
+echo never > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || true
+echo never > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || true
+# Persiste via GRUB para sobreviver ao reboot
+if [ -f /etc/default/grub ]; then
+    # Remove entradas anteriores para evitar duplicatas
+    sed -i 's/ transparent_hugepage=never//g' /etc/default/grub 2>/dev/null || true
+    sed -i 's/ zswap\.enabled=0//g' /etc/default/grub 2>/dev/null || true
+    sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 transparent_hugepage=never zswap.enabled=0"/' /etc/default/grub
+    update-grub 2>/dev/null || true
+fi
+
+# Desabilita zswap imediatamente (conflita com ZRAM - dupla compressão em RAM)
+echo 0 > /sys/kernel/mm/zswap/enabled 2>/dev/null || true
+echo -e "${GREEN}    THP e zswap desabilitados${NC}"
 
 # Desabilita serviços desnecessários em VM (economia de RAM)
 echo "  -> Desabilitando serviços desnecessários..."
@@ -1323,12 +1483,28 @@ echo -e "${GREEN}    Core dumps desabilitados${NC}"
 # Instala earlyoom (proteção contra OOM - mata processo menos importante antes de congelar)
 echo "  -> Instalando earlyoom..."
 apt install -y --no-install-recommends --no-install-suggests earlyoom 2>/dev/null || true
-cat > /etc/default/earlyoom <<'EOOMEOF'
+if command -v earlyoom >/dev/null 2>&1; then
+    EARLYOOM_VER=$(earlyoom --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
+    EARLYOOM_MAJOR=$(echo "${EARLYOOM_VER:-0.0}" | cut -d. -f1)
+    EARLYOOM_MINOR=$(echo "${EARLYOOM_VER:-0.0}" | cut -d. -f2)
+    # --prefer/--avoid disponíveis apenas no earlyoom >= 1.6
+    if [ "${EARLYOOM_MAJOR}" -gt 1 ] || { [ "${EARLYOOM_MAJOR}" -eq 1 ] && [ "${EARLYOOM_MINOR}" -ge 6 ]; } 2>/dev/null; then
+        cat > /etc/default/earlyoom <<'EOOMEOF'
 EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --prefer '(chrome|Chrome)' --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
 EOOMEOF
-systemctl enable earlyoom 2>/dev/null || true
-systemctl restart earlyoom 2>/dev/null || true
-echo -e "${GREEN}    earlyoom configurado${NC}"
+        echo -e "${GREEN}    earlyoom >= 1.6: --prefer/--avoid ativos${NC}"
+    else
+        cat > /etc/default/earlyoom <<'EOOMEOF'
+EARLYOOM_ARGS="-r 3600 -m 5 -s 5"
+EOOMEOF
+        echo -e "${YELLOW}    earlyoom < 1.6 detectado: flags --prefer/--avoid não disponíveis${NC}"
+    fi
+    systemctl enable earlyoom 2>/dev/null || true
+    systemctl restart earlyoom 2>/dev/null || true
+    echo -e "${GREEN}    earlyoom configurado${NC}"
+else
+    echo -e "${YELLOW}    earlyoom não instalado (pacote indisponível no repositório)${NC}"
+fi
 
 # Limpeza de cache apt (libera espaço em disco)
 echo "  -> Limpando cache do apt..."
