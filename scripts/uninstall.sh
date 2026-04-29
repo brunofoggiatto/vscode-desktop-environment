@@ -127,6 +127,9 @@ rm -f "$HOME_DIR/.xsession"
 # XRDP configs
 rm -rf /etc/xrdp
 
+# Autostart system-wide do openbox
+rm -f /etc/xdg/openbox/autostart
+
 # Logs de debug (padrão por usuário e padrão legado)
 rm -f /tmp/xsession-debug*.log 2>/dev/null || true
 rm -f /tmp/startwm-debug*.log 2>/dev/null || true

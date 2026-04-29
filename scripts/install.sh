@@ -1088,6 +1088,33 @@ fi
 
 echo "Variáveis configuradas (XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
 
+# BOOTSTRAP: copia configs do /etc/skel para usuários AD sem config do openbox
+# Necessário quando o home já existe (vazio) e pam_mkhomedir não age
+if [ -d /etc/skel/.config/openbox ] && [ ! -d "$HOME/.config/openbox" ]; then
+    echo "Bootstrap: $HOME sem config openbox — copiando de /etc/skel..."
+    mkdir -p "$HOME" "$HOME/.config" "$HOME/.local/bin" \
+             "$HOME/.local/share/applications" "$HOME/.local/share/icons" \
+             "$HOME/.themes"
+    [ -d /etc/skel/.config/openbox ]      && cp -r /etc/skel/.config/openbox      "$HOME/.config/"
+    [ -d /etc/skel/.config/tint2 ]        && cp -r /etc/skel/.config/tint2        "$HOME/.config/"
+    [ -d /etc/skel/.config/rofi ]         && cp -r /etc/skel/.config/rofi         "$HOME/.config/"
+    [ -d /etc/skel/.config/gtk-3.0 ]      && cp -r /etc/skel/.config/gtk-3.0      "$HOME/.config/"
+    [ -d /etc/skel/.themes/Dracula-Flat ] && cp -r /etc/skel/.themes/Dracula-Flat "$HOME/.themes/"
+    [ -f /etc/skel/.local/bin/show-applications ] \
+        && cp /etc/skel/.local/bin/show-applications "$HOME/.local/bin/"
+    [ -f /etc/skel/.local/share/icons/show-apps.svg ] \
+        && cp /etc/skel/.local/share/icons/show-apps.svg "$HOME/.local/share/icons/"
+    [ -f /etc/skel/.local/share/applications/show-applications.desktop ] \
+        && cp /etc/skel/.local/share/applications/show-applications.desktop \
+              "$HOME/.local/share/applications/"
+    [ -f /etc/skel/.xsession ] && cp /etc/skel/.xsession "$HOME/.xsession"
+    chmod +x "$HOME/.xsession" 2>/dev/null || true
+    chmod +x "$HOME/.config/openbox/autostart" 2>/dev/null || true
+    # Expande __HOME__ no tint2rc pelo home real do usuário
+    sed -i "s|__HOME__|$HOME|g" "$HOME/.config/tint2/tint2rc" 2>/dev/null || true
+    echo "Bootstrap concluído para $HOME"
+fi
+
 # Verifica .xsession do usuário
 if [ -f "$HOME/.xsession" ]; then
     echo "Usando $HOME/.xsession"
@@ -1102,14 +1129,60 @@ chmod +x /etc/xrdp/startwm.sh
 
 echo -e "${GREEN}    startwm.sh criado: $(wc -c < /etc/xrdp/startwm.sh) bytes${NC}"
 
+# Autostart system-wide do Openbox (/etc/xdg/openbox/autostart)
+# Ultima salvaguarda: roda para qualquer usuario sem ~/.config/openbox/autostart
+# Cobre falhas de skel/pam_mkhomedir/bootstrap em qualquer cenario
+echo "  -> Criando autostart system-wide (/etc/xdg/openbox/autostart)..."
+mkdir -p /etc/xdg/openbox
+
+cat > /etc/xdg/openbox/autostart <<XDG_AUTOSTART_CONTENT
+#!/bin/bash
+# Fallback para usuarios sem autostart pessoal (ex: AD/SSSD sem skel copiado)
+# Se o usuario ja tem o proprio autostart, encerra imediatamente
+[ -f "\$HOME/.config/openbox/autostart" ] && exit 0
+
+exec >> /tmp/openbox-autostart-\${USER:-unknown}.log 2>&1
+echo "Autostart system-wide iniciado em \$(date) USER=\$USER HOME=\$HOME"
+
+export PATH="\$HOME/.local/bin:\$PATH"
+export GTK_THEME=Yaru-dark
+setxkbmap -layout br -variant abnt2 &
+xset s off &
+xset -dpms &
+xset s noblank &
+xsetroot -solid "#282a36" &
+sleep 1
+tint2 &
+XDG_AUTOSTART_CONTENT
+
+if [ "$EDITOR" = "vscode" ]; then
+    cat >> /etc/xdg/openbox/autostart <<'XDG_EDITOR'
+sleep 2
+code --disable-gpu --disable-dev-shm-usage --js-flags="--max-old-space-size=2048" &
+XDG_EDITOR
+elif [ "$EDITOR" = "vscodium" ]; then
+    cat >> /etc/xdg/openbox/autostart <<'XDG_EDITOR'
+sleep 2
+codium --disable-gpu --disable-dev-shm-usage --disable-smooth-scrolling --js-flags="--max-old-space-size=1024" &
+XDG_EDITOR
+elif [ "$EDITOR" = "neovim" ]; then
+    cat >> /etc/xdg/openbox/autostart <<'XDG_EDITOR'
+sleep 2
+gnome-terminal --title="nvim-desktop" -- bash -c "while true; do nvim; sleep 0.5; done" &
+XDG_EDITOR
+fi
+
+chmod +x /etc/xdg/openbox/autostart
+echo -e "${GREEN}    /etc/xdg/openbox/autostart criado${NC}"
+
 # Autostart do Openbox
 echo "  -> Criando autostart..."
 
 cat > "$HOME_DIR/.config/openbox/autostart" <<AUTOSTART_CONTENT
 #!/bin/bash
 
-# Log de debug
-exec > /tmp/openbox-autostart.log 2>&1
+# Log de debug (por usuário, append para preservar logs de sessões anteriores)
+exec >> /tmp/openbox-autostart-\${USER:-unknown}.log 2>&1
 echo "Autostart iniciado em \$(date)"
 
 # Garante ~/.local/bin no PATH
@@ -1523,6 +1596,13 @@ DESKTOPEOF
 chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.local/share/applications"
 update-desktop-database "$HOME_DIR/.local/share/applications" 2>/dev/null || true
 echo -e "${GREEN}   Menu limpo - apenas apps selecionados visíveis${NC}"
+
+# Sincroniza skel com os overrides da limpeza
+# Feito AQUI (após limpeza completa) para que usuários AD também vejam
+# apenas os apps curados — sem VS Code, VSCodium, nvim, etc. no Rofi
+echo "  -> Sincronizando overrides de menu para /etc/skel..."
+cp -r "$HOME_DIR/.local/share/applications/." /etc/skel/.local/share/applications/
+echo -e "${GREEN}    Skel applications sincronizado com overrides da limpeza${NC}"
 echo ""
 
 # FASE 8: FINALIZAÇÃO
