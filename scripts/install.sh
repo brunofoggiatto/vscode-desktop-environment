@@ -150,6 +150,26 @@ echo -e "${GREEN}    Chrome instalado${NC}"
 echo -e "${GREEN}  Aplicações instaladas${NC}"
 echo ""
 
+# Mata qualquer instância anterior dos editores antes de instalar/configurar
+echo "  -> Encerrando instâncias anteriores dos editores..."
+for proc in code codium nvim code-oss; do
+    if pgrep -x "$proc" >/dev/null 2>&1; then
+        echo "     Matando $proc..."
+        pkill -TERM -x "$proc" 2>/dev/null || true
+    fi
+done
+# Mata subprocessos relacionados (language servers, extensão hosts, etc.)
+pkill -TERM -f "extensionHost" 2>/dev/null || true
+pkill -TERM -f "ms-python"     2>/dev/null || true
+pkill -TERM -f "pylance"       2>/dev/null || true
+sleep 2
+# SIGKILL em qualquer sobrevivente
+for proc in code codium nvim code-oss; do
+    pkill -KILL -x "$proc" 2>/dev/null || true
+done
+pkill -KILL -f "extensionHost" 2>/dev/null || true
+echo "  -> Editores encerrados"
+
 # FASE 3: EDITOR
 
 echo -e "${BLUE}============================================${NC}"
@@ -195,16 +215,11 @@ echo ""
 echo -e "${GREEN}[4/8] Configurando $EDITOR_LABEL...${NC}"
 
 if [ "$EDITOR" = "vscode" ]; then
-    killall code 2>/dev/null || true
-    sleep 1
     mkdir -p "$HOME_DIR/.config/Code/User"
     chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
     echo "  -> Instalando extensões..."
     if ! sudo -u "$USER_NAME" code --no-sandbox --user-data-dir "$HOME_DIR/.config/Code" --install-extension dracula-theme.theme-dracula --force 2>&1; then
         echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
-    fi
-    if ! sudo -u "$USER_NAME" code --no-sandbox --user-data-dir "$HOME_DIR/.config/Code" --install-extension ms-python.python --force 2>&1; then
-        echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
     fi
     echo "  -> Criando configurações..."
     cat > "$HOME_DIR/.config/Code/User/settings.json" <<'EOF'
@@ -235,16 +250,11 @@ EOF
     chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config/Code"
 
 elif [ "$EDITOR" = "vscodium" ]; then
-    killall codium 2>/dev/null || true
-    sleep 1
     mkdir -p "$HOME_DIR/.config/VSCodium/User"
     chown -R $USER_NAME:$USER_NAME "$HOME_DIR/.config"
     echo "  -> Instalando extensões..."
     if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension dracula-theme.theme-dracula --force 2>&1; then
         echo -e "${YELLOW}    Extensão dracula-theme não instalada (continuando)${NC}"
-    fi
-    if ! sudo -u "$USER_NAME" codium --no-sandbox --user-data-dir "$HOME_DIR/.config/VSCodium" --install-extension ms-python.python --force 2>&1; then
-        echo -e "${YELLOW}    Extensão ms-python.python não instalada (continuando)${NC}"
     fi
     echo "  -> Criando configurações..."
     cat > "$HOME_DIR/.config/VSCodium/User/settings.json" <<'EOF'
@@ -1229,12 +1239,16 @@ for allowed in "${ALLOWED_APPS[@]}"; do
 done
 
 # Força esconder apps que podem estar em outros diretórios
-# VSCodium (fixado no fundo, não deve aparecer no menu)
 FORCE_HIDE=(
     "codium.desktop"
     "codium-url-handler.desktop"
+    "vscodium.desktop"
+    "vscodium-url-handler.desktop"
     "code.desktop"
     "code-url-handler.desktop"
+    "code-oss.desktop"
+    "visual-studio-code.desktop"
+    "nvim.desktop"
     "thunar.desktop"
     "org.xfce.thunar.desktop"
     "org.xfce.thunar-settings.desktop"
@@ -1315,10 +1329,13 @@ echo "  -> Aplicando NoDisplay=true direto nos .desktop do sistema..."
 for sys_desktop in \
     /usr/share/applications/code.desktop \
     /usr/share/applications/code-url-handler.desktop \
+    /usr/share/applications/code-oss.desktop \
+    /usr/share/applications/visual-studio-code.desktop \
     /usr/share/applications/codium.desktop \
     /usr/share/applications/codium-url-handler.desktop \
-    /usr/share/applications/visual-studio-code.desktop \
-    /usr/share/applications/vscodium.desktop; do
+    /usr/share/applications/vscodium.desktop \
+    /usr/share/applications/vscodium-url-handler.desktop \
+    /usr/share/applications/nvim.desktop; do
     [ -f "$sys_desktop" ] || continue
     if grep -q "^NoDisplay=" "$sys_desktop"; then
         sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$sys_desktop"
@@ -1427,8 +1444,6 @@ sed -i '/^vm.page-cluster/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^vm.watermark_boost_factor/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^kernel.nmi_watchdog/d' /etc/sysctl.conf 2>/dev/null || true
 sed -i '/^kernel.numa_balancing/d' /etc/sysctl.conf 2>/dev/null || true
-sed -i '/^vm.min_free_kbytes/d' /etc/sysctl.conf 2>/dev/null || true
-
 cat >> /etc/sysctl.conf <<'SYSCTLEOF'
 vm.swappiness=180
 vm.vfs_cache_pressure=50
@@ -1436,7 +1451,6 @@ vm.dirty_ratio=10
 vm.dirty_background_ratio=5
 vm.page-cluster=0
 vm.watermark_boost_factor=0
-vm.min_free_kbytes=65536
 kernel.nmi_watchdog=0
 kernel.numa_balancing=0
 SYSCTLEOF
