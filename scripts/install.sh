@@ -1285,6 +1285,49 @@ for stub in codium.desktop codium-url-handler.desktop vscodium.desktop vscodium-
     fi
 done
 
+# Reforço: esconde VS Code em TODOS os diretórios XDG (igual ao bloco do VSCodium)
+echo "  -> Reforçando ocultação do VS Code em todos os diretórios XDG..."
+for xdg_dir in /usr/share/applications /usr/local/share/applications /opt/vscode /opt/microsoft/vscode; do
+    [ -d "$xdg_dir" ] || continue
+    for vscode_file in "$xdg_dir"/code*.desktop "$xdg_dir"/vscode*.desktop "$xdg_dir"/visual-studio-code*.desktop; do
+        [ -f "$vscode_file" ] || continue
+        filename=$(basename "$vscode_file")
+        cp "$vscode_file" "$HOME_DIR/.local/share/applications/$filename"
+        if grep -q "^NoDisplay=" "$HOME_DIR/.local/share/applications/$filename"; then
+            sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$HOME_DIR/.local/share/applications/$filename"
+        else
+            echo "NoDisplay=true" >> "$HOME_DIR/.local/share/applications/$filename"
+        fi
+        echo "     $filename oculto (origem: $xdg_dir)"
+    done
+done
+# Stubs para nomes conhecidos do VS Code
+for stub in code.desktop code-url-handler.desktop visual-studio-code.desktop; do
+    if [ ! -f "$HOME_DIR/.local/share/applications/$stub" ]; then
+        printf '[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n' > "$HOME_DIR/.local/share/applications/$stub"
+        echo "     Stub criado: $stub"
+    fi
+done
+
+# Edita diretamente os arquivos de sistema para VS Code e VSCodium
+# (override local nem sempre tem precedência no rofi — editar o sistema garante o resultado)
+echo "  -> Aplicando NoDisplay=true direto nos .desktop do sistema..."
+for sys_desktop in \
+    /usr/share/applications/code.desktop \
+    /usr/share/applications/code-url-handler.desktop \
+    /usr/share/applications/codium.desktop \
+    /usr/share/applications/codium-url-handler.desktop \
+    /usr/share/applications/visual-studio-code.desktop \
+    /usr/share/applications/vscodium.desktop; do
+    [ -f "$sys_desktop" ] || continue
+    if grep -q "^NoDisplay=" "$sys_desktop"; then
+        sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$sys_desktop"
+    else
+        sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$sys_desktop"
+    fi
+    echo "     $(basename $sys_desktop) ocultado no sistema"
+done
+
 # Cria .desktop para apps que podem não ter um (garante que aparecem no rofi)
 if [ ! -f /usr/share/applications/org.gnome.Terminal.desktop ] && [ ! -f /usr/share/applications/gnome-terminal.desktop ]; then
     cat > "$HOME_DIR/.local/share/applications/gnome-terminal.desktop" <<'TERMEOF'
@@ -1424,7 +1467,7 @@ if [ -f /etc/default/grub ]; then
 fi
 
 # Desabilita zswap imediatamente (conflita com ZRAM - dupla compressão em RAM)
-echo 0 > /sys/kernel/mm/zswap/enabled 2>/dev/null || true
+[ -f /sys/kernel/mm/zswap/enabled ] && echo 0 > /sys/kernel/mm/zswap/enabled 2>/dev/null || true
 echo -e "${GREEN}    THP e zswap desabilitados${NC}"
 
 # Desabilita serviços desnecessários em VM (economia de RAM)
@@ -1484,13 +1527,13 @@ echo -e "${GREEN}    Core dumps desabilitados${NC}"
 echo "  -> Instalando earlyoom..."
 apt install -y --no-install-recommends --no-install-suggests earlyoom 2>/dev/null || true
 if command -v earlyoom >/dev/null 2>&1; then
-    EARLYOOM_VER=$(earlyoom --version 2>&1 | grep -oP '\d+\.\d+' | head -1)
+    EARLYOOM_VER=$(earlyoom --version 2>&1 | grep -oP '\d+\.\d+' | head -1 || echo "0.0")
     EARLYOOM_MAJOR=$(echo "${EARLYOOM_VER:-0.0}" | cut -d. -f1)
     EARLYOOM_MINOR=$(echo "${EARLYOOM_VER:-0.0}" | cut -d. -f2)
     # --prefer/--avoid disponíveis apenas no earlyoom >= 1.6
-    if [ "${EARLYOOM_MAJOR}" -gt 1 ] || { [ "${EARLYOOM_MAJOR}" -eq 1 ] && [ "${EARLYOOM_MINOR}" -ge 6 ]; } 2>/dev/null; then
+    if [ "${EARLYOOM_MAJOR:-0}" -gt 1 ] || { [ "${EARLYOOM_MAJOR:-0}" -eq 1 ] && [ "${EARLYOOM_MINOR:-0}" -ge 6 ]; }; then
         cat > /etc/default/earlyoom <<'EOOMEOF'
-EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --prefer '(chrome|Chrome)' --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
+EARLYOOM_ARGS="-r 3600 -m 5 -s 5 --avoid '(codium|openbox|tint2|Xorg|xrdp)'"
 EOOMEOF
         echo -e "${GREEN}    earlyoom >= 1.6: --prefer/--avoid ativos${NC}"
     else
