@@ -1,5 +1,11 @@
 ﻿#!/bin/bash
 
+# Auto-converte CRLF para LF se o arquivo foi editado no Windows
+if grep -q $'\r' "$0" 2>/dev/null; then
+    sed -i 's/\r//g' "$0"
+    exec bash "$0" "$@"
+fi
+
 set -eo pipefail
 
 # CONFIGURAÇÕES BÁSICAS
@@ -933,42 +939,47 @@ def set_key(text, key, value):
         return new_text
     return re.sub(r"(\[Globals\])", rf"\1\n{key}={value}", text, count=1)
 
-content = set_key(content, "blue",      "21113b")
-content = set_key(content, "grey",      "8661e5")
-content = set_key(content, "dark_grey", "44475a")
+content = set_key(content, "blue",      "2a1760")  # input bg: roxo visível
+content = set_key(content, "grey",      "6d28d9")  # botão OK: roxo vívido
+content = set_key(content, "dark_grey", "6272a4")  # bordas: azul Dracula
 
-content = set_key(content, "ls_top_window_bg_color", "282a36")
-content = set_key(content, "ls_bg_color",            "282a36")
+content = set_key(content, "ls_top_window_bg_color", "12082b")  # título: roxo bem escuro
+content = set_key(content, "ls_bg_color",            "1e1e2e")  # fundo: midnight blue
 
 # Limpa qualquer resquício de wallpaper antigo
 content = set_key(content, "ls_background_image", "")
 
 content = set_key(content, "ls_width",  "420")
-content = set_key(content, "ls_height", "380")
+content = set_key(content, "ls_height", "400")
 
 content = set_key(content, "ls_title", "VSDe - Acesso Seguro")
 content = set_key(content, "ls_label_text_color", "ffffff")
-content = set_key(content, "ls_text_color", "ffffff")
+content = set_key(content, "ls_text_color", "f8f8f2")
 
 logo_filename = "$LOGO_FILENAME"
 content = set_key(content, "ls_logo_filename",  logo_filename)
 content = set_key(content, "ls_logo_transform", "scale")
-content = set_key(content, "ls_logo_width",     "175")
-content = set_key(content, "ls_logo_height",    "175")
-content = set_key(content, "ls_logo_x_pos",     "115")
-content = set_key(content, "ls_logo_y_pos",     "40")
+content = set_key(content, "ls_logo_width",     "150")
+content = set_key(content, "ls_logo_height",    "150")
+content = set_key(content, "ls_logo_x_pos",     "135")
+content = set_key(content, "ls_logo_y_pos",     "15")
 
-content = set_key(content, "ls_label_x_pos",  "-1000")
-content = set_key(content, "ls_label_width",  "110")
+# Labels visíveis à esquerda dos campos
+content = set_key(content, "ls_label_x_pos",  "20")
+content = set_key(content, "ls_label_width",  "85")
+
+# Labels customizadas em português (XRDP 0.9.17+)
+content = set_key(content, "ls_username_label", "Login")
+content = set_key(content, "ls_password_label", "Senha")
 
 content = set_key(content, "ls_input_x_pos",  "110")
 content = set_key(content, "ls_input_width",  "200")
-content = set_key(content, "ls_input_y_pos",  "210")
+content = set_key(content, "ls_input_y_pos",  "200")
 
-content = set_key(content, "ls_btn_ok_x_pos",     "167")
-content = set_key(content, "ls_btn_ok_y_pos",     "310")
-content = set_key(content, "ls_btn_ok_width",     "85")
-content = set_key(content, "ls_btn_ok_height",    "30")
+content = set_key(content, "ls_btn_ok_x_pos",     "150")
+content = set_key(content, "ls_btn_ok_y_pos",     "330")
+content = set_key(content, "ls_btn_ok_width",     "120")
+content = set_key(content, "ls_btn_ok_height",    "35")
 content = set_key(content, "ls_btn_cancel_x_pos", "-1000")
 content = set_key(content, "ls_btn_cancel_y_pos", "-1000")
 content = set_key(content, "ls_btn_cancel_width", "0")
@@ -1328,8 +1339,7 @@ cp -r "$HOME_DIR/.themes/Dracula-Flat/openbox-3/." /etc/skel/.themes/Dracula-Fla
 cp "$HOME_DIR/.local/bin/show-applications"  /etc/skel/.local/bin/show-applications
 chmod +x /etc/skel/.local/bin/show-applications
 cp "$HOME_DIR/.local/share/icons/show-apps.svg" /etc/skel/.local/share/icons/show-apps.svg
-cp "$HOME_DIR/.local/share/applications/show-applications.desktop" \
-   /etc/skel/.local/share/applications/show-applications.desktop
+cp "$HOME_DIR/.local/share/applications/show-applications.desktop" /etc/skel/.local/share/applications/show-applications.desktop
 
 echo -e "${GREEN}    /etc/skel populado com configs do ambiente${NC}"
 
