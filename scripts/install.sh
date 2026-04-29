@@ -1088,6 +1088,13 @@ fi
 
 echo "Variáveis configuradas (XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
 
+# Sincroniza overrides de menu do skel a cada login
+# Garante que usuários AD que já tinham home recebam atualizações de limpeza de apps
+if [ -d /etc/skel/.local/share/applications ]; then
+    mkdir -p "$HOME/.local/share/applications"
+    cp -r /etc/skel/.local/share/applications/. "$HOME/.local/share/applications/" 2>/dev/null || true
+fi
+
 # BOOTSTRAP: copia configs do /etc/skel para usuários AD sem config do openbox
 # Necessário quando o home já existe (vazio) e pam_mkhomedir não age
 if [ -d /etc/skel/.config/openbox ] && [ ! -d "$HOME/.config/openbox" ]; then
@@ -1387,8 +1394,9 @@ hide_desktop() {
     fi
 }
 
-# Varre /usr/share/applications e esconde tudo que não está na lista
-for desktop_file in /usr/share/applications/*.desktop; do
+# Varre /usr/share/applications e /usr/local/share/applications
+# e esconde tudo que não está na lista
+for desktop_file in /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop; do
     [ -f "$desktop_file" ] || continue
     filename=$(basename "$desktop_file")
 
@@ -1421,6 +1429,7 @@ done
 
 # Força esconder apps que podem estar em outros diretórios
 FORCE_HIDE=(
+    # Editores (não devem aparecer no menu)
     "codium.desktop"
     "codium-url-handler.desktop"
     "vscodium.desktop"
@@ -1430,21 +1439,43 @@ FORCE_HIDE=(
     "code-oss.desktop"
     "visual-studio-code.desktop"
     "nvim.desktop"
-    "thunar.desktop"
-    "org.xfce.thunar.desktop"
-    "org.xfce.thunar-settings.desktop"
-    "xfce4-about.desktop"
-    "xfce4-terminal.desktop"
-    "xfce4-terminal-emulator.desktop"
-    "org.xfce.mousepad.desktop"
-    "leafpad.desktop"
-    "nautilus-autorun-software.desktop"
-    "org.gnome.Nautilus.desktop"
-    "nautilus.desktop"
+    "vim.desktop"
+    "gvim.desktop"
     "org.gnome.TextEditor.desktop"
     "gnome-text-editor.desktop"
     "org.gnome.gedit.desktop"
     "gedit.desktop"
+    "mousepad-settings.desktop"
+    # Gerenciadores de arquivos alternativos
+    "thunar.desktop"
+    "org.xfce.thunar.desktop"
+    "org.xfce.thunar-settings.desktop"
+    "nautilus-autorun-software.desktop"
+    "org.gnome.Nautilus.desktop"
+    "nautilus.desktop"
+    "leafpad.desktop"
+    # Terminais alternativos
+    "xfce4-terminal.desktop"
+    "xfce4-terminal-emulator.desktop"
+    "byobu.desktop"
+    # Utilitários de sistema que não devem aparecer
+    "rofi.desktop"
+    "rofi-theme-selector.desktop"
+    "tint2.desktop"
+    "tint2-settings.desktop"
+    "tint2conf.desktop"
+    # ImageMagick (vários nomes dependendo da versão)
+    "display-im6.q16.desktop"
+    "display-im6.q16hdri.desktop"
+    "imagemagick-6.q16.desktop"
+    "imagemagick-6.q16hdri.desktop"
+    "imagemagick.desktop"
+    # Documentação / Info
+    "info.desktop"
+    "texinfo.desktop"
+    # XFCE residual
+    "xfce4-about.desktop"
+    "org.xfce.mousepad.desktop"
 )
 
 for app_name in "${FORCE_HIDE[@]}"; do
@@ -1504,7 +1535,7 @@ for stub in code.desktop code-url-handler.desktop visual-studio-code.desktop; do
     fi
 done
 
-# Edita diretamente os arquivos de sistema para VS Code e VSCodium
+# Edita diretamente os arquivos de sistema: NoDisplay=true nos indesejados
 # (override local nem sempre tem precedência no rofi — editar o sistema garante o resultado)
 echo "  -> Aplicando NoDisplay=true direto nos .desktop do sistema..."
 for sys_desktop in \
@@ -1516,7 +1547,23 @@ for sys_desktop in \
     /usr/share/applications/codium-url-handler.desktop \
     /usr/share/applications/vscodium.desktop \
     /usr/share/applications/vscodium-url-handler.desktop \
-    /usr/share/applications/nvim.desktop; do
+    /usr/share/applications/nvim.desktop \
+    /usr/share/applications/vim.desktop \
+    /usr/share/applications/gvim.desktop \
+    /usr/share/applications/rofi.desktop \
+    /usr/share/applications/rofi-theme-selector.desktop \
+    /usr/share/applications/tint2.desktop \
+    /usr/share/applications/tint2-settings.desktop \
+    /usr/share/applications/tint2conf.desktop \
+    /usr/share/applications/byobu.desktop \
+    /usr/share/applications/display-im6.q16.desktop \
+    /usr/share/applications/display-im6.q16hdri.desktop \
+    /usr/share/applications/imagemagick-6.q16.desktop \
+    /usr/share/applications/imagemagick-6.q16hdri.desktop \
+    /usr/share/applications/imagemagick.desktop \
+    /usr/share/applications/info.desktop \
+    /usr/share/applications/texinfo.desktop \
+    /usr/share/applications/mousepad-settings.desktop; do
     [ -f "$sys_desktop" ] || continue
     if grep -q "^NoDisplay=" "$sys_desktop"; then
         sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$sys_desktop"
@@ -1524,6 +1571,18 @@ for sys_desktop in \
         sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$sys_desktop"
     fi
     echo "     $(basename $sys_desktop) ocultado no sistema"
+done
+
+# Corrige GNOME Terminal: remove OnlyShowIn do arquivo de sistema
+# (OnlyShowIn=GNOME impede que apareça no Openbox via Rofi)
+echo "  -> Corrigindo OnlyShowIn do GNOME Terminal no sistema..."
+for term_desktop in \
+    /usr/share/applications/org.gnome.Terminal.desktop \
+    /usr/share/applications/gnome-terminal.desktop; do
+    [ -f "$term_desktop" ] || continue
+    sed -i '/^OnlyShowIn=/d' "$term_desktop"
+    sed -i '/^NotShowIn=/d' "$term_desktop"
+    echo "     $(basename $term_desktop) corrigido (OnlyShowIn removido)"
 done
 
 # Cria .desktop para apps que podem não ter um (garante que aparecem no rofi)
