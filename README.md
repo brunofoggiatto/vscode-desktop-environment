@@ -1,11 +1,7 @@
 <p align="center">
-  <img src="scripts/assets/logo-vsde.png" width="260" alt="VSDe logo"/>
-</p>
-
-<h1 align="center">VS Code Desktop Environment</h1>
-
-<p align="center">
-  Ambiente de desenvolvimento focado em otimização e performace.
+  <img src="scripts/assets/logo_vsde.png" width="520" alt="VSDe logo"/><br>
+  <b style="font-size: 28px;">VS Code Desktop Environment</b><br>
+  <sub>Ambiente de desenvolvimento focado em otimização e performance.</sub>
 </p>
 
 <p align="center">
