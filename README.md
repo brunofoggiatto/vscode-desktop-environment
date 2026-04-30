@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="scripts/assets/logo_vsde.png" width="260" alt="VSDe logo"/>
+  <img src="scripts/assets/logo_vsde.png" width="420" alt="VSDe logo"/>
 </p>
 
 <h1 align="center">VS Code Desktop Environment</h1>
