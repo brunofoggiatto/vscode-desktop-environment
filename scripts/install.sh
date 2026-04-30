@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # Auto-converte CRLF para LF se o arquivo foi editado no Windows
 if grep -q $'\r' "$0" 2>/dev/null; then
@@ -900,22 +900,11 @@ echo ""
 
 echo -e "${GREEN}[7/8] Configurando XRDP...${NC}"
 
-# Configura layout moderno e isola Xorg
-echo "  -> Configurando logo PNG e tema Dracula na tela de login..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOGO_DEST="/etc/xrdp/logo-vsde.bmp"
-LOGO_SRC="$SCRIPT_DIR/assets/logo-vsde.bmp"
-
-if [ -f "$LOGO_SRC" ]; then
-    cp "$LOGO_SRC" "$LOGO_DEST"
-    chmod 644 "$LOGO_DEST"
-    echo -e "${GREEN}     Logo customizada copiada${NC}"
-else
-    echo -e "${YELLOW}    Logo customizada não encontrada em assets/. Se ela já estiver em /etc/xrdp/logo-vsde.bmp, será usada.${NC}"
+# Garante python3 disponível (instalado na Fase 1, mas verifica por segurança)
+if ! command -v python3 >/dev/null 2>&1; then
+    echo -e "${RED}Erro: python3 não encontrado. Fase 1 falhou?${NC}"
+    exit 1
 fi
-
-# Sempre força a configuração no xrdp.ini
-LOGO_FILENAME="/etc/xrdp/logo-vsde.bmp"
 
 python3 - <<PYEOF
 import re, sys
@@ -929,62 +918,68 @@ except FileNotFoundError:
     sys.exit(1)
 
 def set_key(text, key, value):
-    pattern = rf"^({re.escape(key)}\s*=).*\$"
+    pattern = rf"^({re.escape(key)}\s*=).*$"
     new_text, n = re.subn(pattern, rf"\g<1>{value}", text, count=1, flags=re.MULTILINE)
     if n > 0:
         return new_text
-    pattern_commented = rf"^[#;]\s*{re.escape(key)}\s*=.*\$"
+    pattern_commented = rf"^[#;]\s*{re.escape(key)}\s*=.*$"
     new_text, n = re.subn(pattern_commented, f"{key}={value}", text, count=1, flags=re.MULTILINE)
     if n > 0:
         return new_text
     return re.sub(r"(\[Globals\])", rf"\1\n{key}={value}", text, count=1)
 
-content = set_key(content, "blue",      "2a1760")  # input bg: roxo visível
-content = set_key(content, "grey",      "6d28d9")  # botão OK: roxo vívido
-content = set_key(content, "dark_grey", "6272a4")  # bordas: azul Dracula
+# --- Paleta: azul corporativo escuro ---
+content = set_key(content, "blue",      "282a36")   # fundo geral (cinza background)
+content = set_key(content, "grey",      "1e5ca8")   # botão OK: azul sólido
+content = set_key(content, "dark_grey", "2a3d54")   # bordas/hover
 
-content = set_key(content, "ls_top_window_bg_color", "12082b")  # título: roxo bem escuro
-content = set_key(content, "ls_bg_color",            "1e1e2e")  # fundo: midnight blue
+# --- Janela do login ---
+content = set_key(content, "ls_top_window_bg_color", "172030")  # header da caixa
+content = set_key(content, "ls_bg_color",            "212d3f")  # corpo da caixa
 
-# Limpa qualquer resquício de wallpaper antigo
+# --- Logo (usa o arquivo existente, se houver) ---
+logo_filename = "/etc/xrdp/logo-vsde.bmp"
 content = set_key(content, "ls_background_image", "")
+content = set_key(content, "ls_logo_filename",    logo_filename)
+content = set_key(content, "ls_logo_transform",   "scale")
+content = set_key(content, "ls_logo_width",       "80")
+content = set_key(content, "ls_logo_height",      "80")
+content = set_key(content, "ls_logo_x_pos",       "170")   # centralizado em 420px
+content = set_key(content, "ls_logo_y_pos",       "20")
 
+# --- Dimensões da caixa de login ---
 content = set_key(content, "ls_width",  "420")
-content = set_key(content, "ls_height", "400")
+content = set_key(content, "ls_height", "380")
 
-content = set_key(content, "ls_title", "VSDe - Acesso Seguro")
-content = set_key(content, "ls_label_text_color", "ffffff")
-content = set_key(content, "ls_text_color", "f8f8f2")
+# --- Textos ---
+content = set_key(content, "ls_title",            "VSDe — Acesso Seguro")
+content = set_key(content, "ls_label_text_color", "6b8099")   # labels: cinza-azulado discreto
+content = set_key(content, "ls_text_color",       "c5cfd8")   # inputs: texto claro
 
-logo_filename = "$LOGO_FILENAME"
-content = set_key(content, "ls_logo_filename",  logo_filename)
-content = set_key(content, "ls_logo_transform", "scale")
-content = set_key(content, "ls_logo_width",     "150")
-content = set_key(content, "ls_logo_height",    "150")
-content = set_key(content, "ls_logo_x_pos",     "135")
-content = set_key(content, "ls_logo_y_pos",     "15")
-
-# Labels visíveis à esquerda dos campos
-content = set_key(content, "ls_label_x_pos",  "20")
-content = set_key(content, "ls_label_width",  "85")
-
-# Labels customizadas em português (XRDP 0.9.17+)
+# --- Labels em português ---
 content = set_key(content, "ls_username_label", "Login")
 content = set_key(content, "ls_password_label", "Senha")
 
-content = set_key(content, "ls_input_x_pos",  "110")
-content = set_key(content, "ls_input_width",  "200")
-content = set_key(content, "ls_input_y_pos",  "200")
+# --- Posicionamento dos labels ---
+content = set_key(content, "ls_label_x_pos", "20")
+content = set_key(content, "ls_label_width", "80")
 
-content = set_key(content, "ls_btn_ok_x_pos",     "150")
-content = set_key(content, "ls_btn_ok_y_pos",     "330")
-content = set_key(content, "ls_btn_ok_width",     "120")
-content = set_key(content, "ls_btn_ok_height",    "35")
-content = set_key(content, "ls_btn_cancel_x_pos", "-1000")
-content = set_key(content, "ls_btn_cancel_y_pos", "-1000")
-content = set_key(content, "ls_btn_cancel_width", "0")
-content = set_key(content, "ls_btn_cancel_height","0")
+# --- Posicionamento dos campos ---
+content = set_key(content, "ls_input_x_pos", "110")
+content = set_key(content, "ls_input_width", "270")
+content = set_key(content, "ls_input_y_pos", "200")
 
+# --- Botão OK centralizado, Cancel escondido ---
+content = set_key(content, "ls_btn_ok_x_pos",      "140")
+content = set_key(content, "ls_btn_ok_y_pos",      "310")
+content = set_key(content, "ls_btn_ok_width",      "140")
+content = set_key(content, "ls_btn_ok_height",     "34")
+content = set_key(content, "ls_btn_cancel_x_pos",  "-1000")
+content = set_key(content, "ls_btn_cancel_y_pos",  "-1000")
+content = set_key(content, "ls_btn_cancel_width",  "0")
+content = set_key(content, "ls_btn_cancel_height", "0")
+
+# --- Mantém apenas seções essenciais + Xorg ---
 sessions_to_keep = ["globals", "logging", "channels", "routing"]
 lines = content.splitlines()
 out_lines = []
@@ -994,7 +989,6 @@ for line in lines:
     stripped = line.strip()
     if stripped.startswith("[") and stripped.endswith("]"):
         current_section = stripped[1:-1].lower()
-    
     if current_section in sessions_to_keep:
         out_lines.append(line)
 
@@ -1004,7 +998,7 @@ content += "[Xorg]\nname=Ambiente VSDe\nlib=libxup.so\nusername=ask\npassword=as
 with open(ini_path, "w") as f:
     f.write(content)
 
-print("    xrdp.ini atualizado: paleta Dracula + layout moderno + Xorg isolado")
+print("    xrdp.ini atualizado: tema corporativo azul escuro")
 PYEOF
 
 # Otimizações no xrdp.ini
@@ -1548,51 +1542,61 @@ done
 # Edita diretamente os arquivos de sistema: NoDisplay=true nos indesejados
 # (override local nem sempre tem precedência no rofi — editar o sistema garante o resultado)
 echo "  -> Aplicando NoDisplay=true direto nos .desktop do sistema..."
-for sys_desktop in \
-    /usr/share/applications/code.desktop \
-    /usr/share/applications/code-url-handler.desktop \
-    /usr/share/applications/code-oss.desktop \
-    /usr/share/applications/visual-studio-code.desktop \
-    /usr/share/applications/codium.desktop \
-    /usr/share/applications/codium-url-handler.desktop \
-    /usr/share/applications/vscodium.desktop \
-    /usr/share/applications/vscodium-url-handler.desktop \
-    /usr/share/applications/nvim.desktop \
-    /usr/share/applications/vim.desktop \
-    /usr/share/applications/gvim.desktop \
-    /usr/share/applications/rofi.desktop \
-    /usr/share/applications/rofi-theme-selector.desktop \
-    /usr/share/applications/tint2.desktop \
-    /usr/share/applications/tint2-settings.desktop \
-    /usr/share/applications/tint2conf.desktop \
-    /usr/share/applications/byobu.desktop \
-    /usr/share/applications/display-im6.q16.desktop \
-    /usr/share/applications/display-im6.q16hdri.desktop \
-    /usr/share/applications/imagemagick-6.q16.desktop \
-    /usr/share/applications/imagemagick-6.q16hdri.desktop \
-    /usr/share/applications/imagemagick.desktop \
-    /usr/share/applications/info.desktop \
-    /usr/share/applications/texinfo.desktop \
-    /usr/share/applications/mousepad-settings.desktop; do
+
+# Colocar os itens numa variável evita o uso problemático das barras invertidas (\)
+APPS_TO_HIDE="
+    /usr/share/applications/code.desktop
+    /usr/share/applications/code-url-handler.desktop
+    /usr/share/applications/code-oss.desktop
+    /usr/share/applications/visual-studio-code.desktop
+    /usr/share/applications/codium.desktop
+    /usr/share/applications/codium-url-handler.desktop
+    /usr/share/applications/vscodium.desktop
+    /usr/share/applications/vscodium-url-handler.desktop
+    /usr/share/applications/nvim.desktop
+    /usr/share/applications/vim.desktop
+    /usr/share/applications/gvim.desktop
+    /usr/share/applications/rofi.desktop
+    /usr/share/applications/rofi-theme-selector.desktop
+    /usr/share/applications/tint2.desktop
+    /usr/share/applications/tint2-settings.desktop
+    /usr/share/applications/tint2conf.desktop
+    /usr/share/applications/byobu.desktop
+    /usr/share/applications/display-im6.q16.desktop
+    /usr/share/applications/display-im6.q16hdri.desktop
+    /usr/share/applications/imagemagick-6.q16.desktop
+    /usr/share/applications/imagemagick-6.q16hdri.desktop
+    /usr/share/applications/imagemagick.desktop
+    /usr/share/applications/info.desktop
+    /usr/share/applications/texinfo.desktop
+    /usr/share/applications/mousepad-settings.desktop
+"
+
+for sys_desktop in $APPS_TO_HIDE; do
     [ -f "$sys_desktop" ] || continue
     if grep -q "^NoDisplay=" "$sys_desktop"; then
         sed -i 's/^NoDisplay=.*/NoDisplay=true/' "$sys_desktop"
     else
         sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$sys_desktop"
     fi
-    echo "     $(basename $sys_desktop) ocultado no sistema"
+    echo "      $(basename "$sys_desktop") ocultado no sistema"
 done
 
 # Corrige GNOME Terminal: remove OnlyShowIn do arquivo de sistema
 # (OnlyShowIn=GNOME impede que apareça no Openbox via Rofi)
 echo "  -> Corrigindo OnlyShowIn do GNOME Terminal no sistema..."
-for term_desktop in \
-    /usr/share/applications/org.gnome.Terminal.desktop \
-    /usr/share/applications/gnome-terminal.desktop; do
+
+# Variável contendo os caminhos, eliminando a necessidade das barras invertidas
+TERMINALS_TO_FIX="
+    /usr/share/applications/org.gnome.Terminal.desktop
+    /usr/share/applications/gnome-terminal.desktop
+"
+
+for term_desktop in $TERMINALS_TO_FIX; do
     [ -f "$term_desktop" ] || continue
     sed -i '/^OnlyShowIn=/d' "$term_desktop"
     sed -i '/^NotShowIn=/d' "$term_desktop"
-    echo "     $(basename $term_desktop) corrigido (OnlyShowIn removido)"
+    echo "      $(basename "$term_desktop") corrigido (OnlyShowIn removido)"
 done
 
 # Cria .desktop para apps que podem não ter um (garante que aparecem no rofi)
